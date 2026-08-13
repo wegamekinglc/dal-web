@@ -27,7 +27,7 @@ def _backend_dir() -> Path:
 def default_db_url() -> str:
     """The SQLAlchemy URL used when ``DAL_WEB_DB_URL`` is unset.
 
-    Points at a local SQLite file under ``dal-web/backend/.data/`` so a fresh
+    Points at a local SQLite file under ``backend/.data/`` so a fresh
     checkout persists out of the box without provisioning a database server.
     """
     data_dir = _backend_dir() / ".data"

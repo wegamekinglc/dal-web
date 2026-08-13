@@ -104,34 +104,27 @@ If the user asks to run tests after starting the UI:
 
 ## DAL backend (dal-python)
 
-The backend imports the compiled `dal` package (dal-python pybind11 bindings) directly -- there is no pure-Python fallback, so build and install it before running the server:
+The backend imports the compiled `dal` package (dal-python pybind11 bindings) directly -- there is no pure-Python fallback. `dal-python>=2026.8.14` is a declared backend dependency, so `uv sync` installs the published wheel from PyPI with no C++ build:
 
-1. Build `dal-python` per the repo root `README.md`.
-2. From `backend/`, install it against the existing staged prefix for
-   the selected platform.
+```bash
+cd backend && uv sync
+```
 
-   Linux/macOS:
+To develop against an unreleased DAL build, install from a DAL source checkout into the backend environment instead:
 
-   ```bash
-   uv sync --inexact
-   stage="$(cd ../../build/stage/Release-linux && pwd -P)"
-   uv pip install ../../dal-python \
-     "--config-settings=cmake.define.DAL_INSTALL_PREFIX=$stage"
-   uv run --no-sync python -m app.native_runtime
-   ```
+```bash
+cd backend
+uv pip install /path/to/Derivatives-Algorithms-Lib/dal-python \
+  "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/path/to/build/stage/<platform-preset>"
+```
 
-   Windows (PowerShell 7+):
+The start scripts run `uv sync --inexact`, which preserves such a manually installed local binding. Preflight the import either way:
 
-   ```powershell
-   uv sync --inexact
-   $stage = Resolve-Path ../../build/stage/Release-windows
-   uv pip install ../../dal-python --config-settings "cmake.define.DAL_INSTALL_PREFIX=$stage"
-   uv run --no-sync python -m app.native_runtime
-   ```
+```bash
+uv run --no-sync python -m app.native_runtime
+```
 
-   The prefix must already contain the matching staged DAL install. The explicit
-   `uv sync --inexact` and `uv run --no-sync` lifecycle preserves the manually
-   installed native package.
+See `README.md#native-dal-package` for the full contract.
 
 The start scripts inherit the caller's environment, so once `dal` is importable just run them directly:
 
