@@ -6,9 +6,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BACKEND_DIR="${REPO_ROOT}/dal-web/backend"
-FRONTEND_DIR="${REPO_ROOT}/dal-web/frontend"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BACKEND_DIR="${REPO_ROOT}/backend"
+FRONTEND_DIR="${REPO_ROOT}/frontend"
 BACKEND_PORT="${DAL_PLAYWRIGHT_BACKEND_PORT:-8001}"
 FRONTEND_PORT="${DAL_PLAYWRIGHT_FRONTEND_PORT:-5173}"
 BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}/api/health"
@@ -22,11 +22,11 @@ fi
 BACKEND_PYTHON="${BACKEND_DIR}/.venv/bin/python"
 VITE="${FRONTEND_DIR}/node_modules/.bin/vite"
 if [ ! -x "${BACKEND_PYTHON}" ]; then
-  echo "error: backend environment missing; run (cd dal-web/backend && uv sync --inexact)" >&2
+  echo "error: backend environment missing; run (cd backend && uv sync --inexact)" >&2
   exit 1
 fi
 if [ ! -x "${VITE}" ]; then
-  echo "error: frontend dependencies missing; run (cd dal-web/frontend && npm ci)" >&2
+  echo "error: frontend dependencies missing; run (cd frontend && npm ci)" >&2
   exit 1
 fi
 if ! command -v curl >/dev/null 2>&1; then
