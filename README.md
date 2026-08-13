@@ -4,7 +4,7 @@ A web application for managing and pricing derivatives portfolios on top of the
 Derivatives Algorithms Library (DAL).
 
 The visual Curve Lab build/version/pricing/risk contract is documented in the
-[Curve Lab guide](../docs/curve-lab.md).
+[Curve Lab guide](docs/curve-lab.md).
 
 * **Backend** -- FastAPI (Python `>= 3.13`).
 * **Frontend** -- React + TypeScript (Vite).
@@ -13,7 +13,7 @@ The visual Curve Lab build/version/pricing/risk contract is documented in the
   module, `backend/app/services/dal_gateway.py`.
 
 ```
-dal-web/
+.
 ├── scripts/
 │   ├── start.sh             start both services (backend + frontend) — Linux/macOS
 │   ├── start.ps1            Windows/PowerShell 7 equivalent of start.sh
@@ -63,18 +63,6 @@ No other module imports `dal` directly -- routers and services depend on
 `DalGateway`, satisfying the "calls to DAL only through the Python public API"
 requirement.
 
-### DAL dependency
-
-The backend imports the compiled `dal` package (the dal-python pybind11 bindings;
-see `dal-python/` and the repository root `README.md`) directly -- it is the sole
-pricing engine, with no pure-Python fallback. Build and install `dal-python` into
-the backend's uv environment before running the server. The canonical
-staged-prefix command is in [the installation guide](../docs/installation.md#web-ui).
-
-The pytest suite registers a minimal fake `dal` module (see `tests/conftest.py`)
-so the FastAPI wiring can be exercised without a C++ build; production imports
-the real `dal`.
-
 Runtime configuration:
 
 | Variable               | Default                                       | Meaning                                                                                                     |
@@ -85,6 +73,33 @@ Runtime configuration:
 | `DAL_WEB_STORE`        | unset                                         | Set to `memory` to bypass the DB and use the legacy in-memory store.                                        |
 | `DAL_WEB_AUTO_MIGRATE` | unset                                         | Set to `1` to bring the schema up to date via `alembic upgrade head` on startup (otherwise `create_all()`). |
 | `DAL_NUM_THREADS`      | hardware concurrency                          | Positive cap for DAL's lazy native thread pool; set before the backend imports `dal`.                       |
+
+## Native DAL package
+
+The backend imports the compiled `dal` package (the
+[dal-python](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/tree/master/dal-python)
+pybind11 bindings) directly -- it is the sole pricing engine, with no
+pure-Python fallback. `dal-python>=2026.8.14` is a declared backend
+dependency, so `uv sync` installs the published wheel from PyPI; no C++ build
+is needed for normal development and deployment.
+
+To develop against an unreleased DAL build, install from a DAL source
+checkout into the backend environment instead:
+
+```bash
+cd backend
+uv pip install /path/to/Derivatives-Algorithms-Lib/dal-python \
+  "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/path/to/build/stage/<platform-preset>"
+```
+
+`start.sh`/`start.ps1` run `uv sync --inexact`, which preserves such a
+manually installed local binding. `uv run --no-sync python -m
+app.native_runtime` preflights the import and required binding symbols.
+
+The pytest suite registers a minimal fake `dal` module (see
+`backend/tests/conftest.py`) so the FastAPI wiring can be exercised without
+the native package; `native`-marked tests and production import the real
+`dal`.
 
 ## Persistence
 
@@ -109,14 +124,14 @@ process-local C++ handle is stored. A completed run can therefore be read in a
 fresh backend process, and its curves can be rebuilt through `DalGateway` using
 only database DTOs.
 
-The default backend is a local SQLite file under `dal-web/backend/.data/`
+The default backend is a local SQLite file under `backend/.data/`
 (gitignored); point `DAL_WEB_DB_URL` at any SQLAlchemy URL to switch backends,
 e.g. `postgresql+psycopg://host/db`. SQLite connections get WAL journaling and
 foreign-key enforcement enabled automatically.
 
 Schema management defaults to `create_all()` on startup (idempotent, zero
 friction). Set `DAL_WEB_AUTO_MIGRATE=1` to apply Alembic migrations instead
-(`alembic upgrade head`); the migration set lives in `dal-web/backend/migrations/`
+(`alembic upgrade head`); the migration set lives in `backend/migrations/`
 and can be run directly with `uv run alembic upgrade head` from the backend
 directory.
 
@@ -147,32 +162,32 @@ On database-backed startup, orphaned in-flight rows are reconciled to
 has elapsed. Terminal rows and versions remain readable. In-memory mode loses
 all Curve Lab state on restart.
 
-See [Curve Lab persistence, restart, and rollback](../docs/curve-lab.md#persistence-restart-and-rollback)
+See [Curve Lab persistence, restart, and rollback](docs/curve-lab.md#persistence-restart-and-rollback)
 for migration and destructive downgrade guidance.
 
 ## Running
 
 ### Quick Start (both services)
 
-The easiest way to start and stop the web UI is with the scripts in `dal-web/scripts/`.
+The easiest way to start and stop the web UI is with the scripts in `scripts/`.
 Use the `.sh` scripts on Linux/macOS and the `.ps1` scripts on Windows (PowerShell 7+):
 
 ```bash
 # Start both services — Linux/macOS
-./dal-web/scripts/start.sh
+./scripts/start.sh
 
 # Stop both services — Linux/macOS
-./dal-web/scripts/stop.sh          # SIGTERM
-./dal-web/scripts/stop.sh --force  # escalate to SIGKILL if needed
+./scripts/stop.sh          # SIGTERM
+./scripts/stop.sh --force  # escalate to SIGKILL if needed
 ```
 
 ```powershell
 # Start both services — Windows (PowerShell 7+)
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1
 
 # Stop both services — Windows
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1           # graceful
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force    # escalate to force kill
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1           # graceful
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1 -Force    # escalate to force kill
 ```
 
 Both launchers check their platform prerequisites, including Python ≥ 3.13,
@@ -184,7 +199,7 @@ either `ss` or `lsof`; its stopper needs `grep` and `lsof`. They verify ports `8
 dependencies, launch Uvicorn with `uv run --no-sync` and Vite in the background,
 wait for both services, and smoke-test the proxy (`/api` → backend). `--inexact`
 and `--no-sync` preserve the locally installed DAL package. PIDs are saved to
-`dal-web/{backend,frontend}/.server.pid`.
+`{backend,frontend}/.server.pid`.
 
 Log files differ by platform. On Linux/macOS both streams are merged into a
 single `.server.log` next to each server. On Windows each service writes two
@@ -205,12 +220,11 @@ server proxies `/api` requests to the backend automatically (target port is
 
 ### Backend (Python >= 3.13)
 
-Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `dal-web/backend`:
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `backend`:
 
 ```bash
-cd dal-web/backend
+cd backend
 uv sync --inexact
-uv pip install ../../dal-python "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/absolute/path/to/build/stage/<platform-preset>"
 uv run --no-sync python -m app.native_runtime
 uv run --no-sync python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
@@ -219,18 +233,14 @@ uv run --no-sync python -m uvicorn app.main:app --reload --host 127.0.0.1 --port
 needed) and resolves dependencies from the committed `uv.lock`. API docs are then
 available at <http://127.0.0.1:8001/docs>.
 
-Replace `<platform-preset>` with the stage produced by the active build, such as
-`Release-linux` or `Release-windows`. The quoted command works in POSIX shells
-and PowerShell.
-
-> The backend requires the compiled `dal` package. If the preflight fails, install
-> the package against the staged DAL prefix as shown in the
-> [installation guide](../docs/installation.md#install-the-native-package-into-the-backend-environment).
+> The backend requires the compiled `dal` package. `uv sync` installs it from
+> PyPI; if the preflight fails or you need an unreleased build, see
+> [Native DAL package](#native-dal-package).
 
 ### Frontend
 
 ```bash
-cd dal-web/frontend
+cd frontend
 npm install
 ./node_modules/.bin/vite    # http://localhost:5173 (proxies /api to :8001)
 ```
@@ -250,10 +260,10 @@ If you started the services with a start script, stop them with the matching
 stop script:
 
 ```bash
-./dal-web/scripts/stop.sh                       # Linux/macOS
+./scripts/stop.sh                       # Linux/macOS
 ```
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1   # Windows
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1   # Windows
 ```
 
 If you started them manually, press `Ctrl+C` in each terminal, or use the stop
@@ -267,7 +277,7 @@ free the port or run on a different one:
 
 ```bash
 # Option A — stop any running web UI
-./dal-web/scripts/stop.sh
+./scripts/stop.sh
 
 # Option B — find listener PIDs, then pass them to kill
 lsof -tiTCP:8001 -sTCP:LISTEN
@@ -281,7 +291,7 @@ On Windows the equivalents are:
 
 ```powershell
 # Option A — stop any running web UI
-pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1
 
 # Option B — find what owns the port, then kill it
 Get-NetTCPConnection -LocalPort 8001 -State Listen
@@ -289,7 +299,7 @@ Stop-Process -Id <pid from above> -Force
 ```
 
 If you choose Option C, also update the proxy target in
-`dal-web/frontend/vite.config.ts` to match (`http://127.0.0.1:8002`) and restart
+`frontend/vite.config.ts` to match (`http://127.0.0.1:8002`) and restart
 the frontend.
 
 **Frontend can't reach the backend.** Make sure the backend starts *before* the
@@ -361,7 +371,7 @@ response with code `REQUEST_VALIDATION_FAILED` before draft or audit
 persistence. Queue exhaustion returns `429` with `Retry-After`. The full
 endpoint inventory, JSON example, native/Python entry points, archive limits,
 matrix units, and compatibility contract are in the
-[Curve Lab guide](../docs/curve-lab.md).
+[Curve Lab guide](docs/curve-lab.md).
 
 ### Async curve calibration
 
@@ -428,13 +438,13 @@ pricing"`; completed and already-failed rows are left untouched.
 ### Tests
 
 ```bash
-cd dal-web/backend
+cd backend
 uv run --no-sync pytest     # uses a fake dal module (no C++ build needed)
 ```
 
 ```bash
-./dal-web/scripts/setup-playwright.sh
-cd dal-web/frontend
+./scripts/setup-playwright.sh
+cd frontend
 npm run build               # type-check + production build
 npm test                    # vitest unit tests (jsdom; no browser or backend needed)
 npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
