@@ -61,11 +61,13 @@ def check_requirement_sets(errors: list[str]) -> None:
 def check_launcher_portability(errors: list[str]) -> None:
     start = (ROOT / "scripts" / "start.sh").read_text(encoding="utf-8")
     stop = (ROOT / "scripts" / "stop.sh").read_text(encoding="utf-8")
-    if "ss -tln" in start and "lsof" not in start:
+    if ("ss -tln" in start and "lsof" not in start) or (
+        "ss -tln" in stop and "lsof" not in stop
+    ):
         errors.append("scripts: macOS launchers must not require Linux-only ss")
     if "xargs -r" in stop:
         errors.append("scripts/stop.sh: GNU-only xargs -r is not macOS portable")
-    if re.search(r"\bseq\b", start + stop):
+    if re.search(r"\bseq\b", start) or re.search(r"\bseq\b", stop):
         errors.append("scripts: macOS launchers must not require GNU/Coreutils seq")
 
 
