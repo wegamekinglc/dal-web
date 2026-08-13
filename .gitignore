@@ -22,3 +22,7 @@ tsconfig.tsbuildinfo
 # Playwright local Chrome (setup-playwright.sh)
 chrome/
 chrome-libs/
+
+# Playwright run artifacts
+frontend/playwright-report/
+frontend/test-results/
