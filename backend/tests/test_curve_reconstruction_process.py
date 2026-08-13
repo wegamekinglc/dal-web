@@ -27,11 +27,16 @@ def _invoke(
     ]
     if ids is not None:
         command.extend(("--ids-json", json.dumps(ids, sort_keys=True)))
+    environment = os.environ.copy()
+    backend = Path(__file__).resolve().parents[1]
+    environment["PYTHONPATH"] = os.pathsep.join(
+        value for value in (str(backend), environment.get("PYTHONPATH")) if value
+    )
     result = subprocess.run(
         command,
         check=False,
         capture_output=True,
-        env=os.environ.copy(),
+        env=environment,
         text=True,
         timeout=60,
     )
