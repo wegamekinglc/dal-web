@@ -22,14 +22,14 @@ def test_native_preflight_reports_install_command(monkeypatch):
 
     message = str(error.value)
     assert "Native DAL Python package is required" in message  # nosec B101
-    assert "uv pip install ../../dal-python" in message  # nosec B101
+    assert "uv sync" in message  # nosec B101
     assert (  # nosec B101
         "--config-settings=cmake.define.DAL_INSTALL_PREFIX="
-        "/absolute/path/to/build/stage/<platform-preset>"
+        "/path/to/build/stage/<platform-preset>"
     ) in message
     assert "Release-linux" not in message  # nosec B101
     assert "--no-build-isolation" not in message  # nosec B101
-    assert "../../docs/installation.md#install-the-native-package" in message  # nosec B101
+    assert "README.md#native-dal-package" in message  # nosec B101
     assert "No module named 'dal'" in message  # nosec B101
 
 

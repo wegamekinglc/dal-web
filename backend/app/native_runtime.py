@@ -52,13 +52,14 @@ _TEST_DOUBLE_MARKER = "__dal_web_test_double__"
 def _failure_message(reason: str) -> str:
     return (
         "Native DAL Python package is required by dal-web but could not be loaded.\n"
-        "Install the repository binding into the backend environment, then retry:\n"
-        "  cd dal-web/backend\n"
-        "  uv pip install ../../dal-python "
+        "It is a declared dependency; install the environment and retry:\n"
+        "  cd backend && uv sync\n"
+        "To develop against an unreleased DAL build, install from a DAL source "
+        "checkout instead:\n"
+        "  uv pip install /path/to/Derivatives-Algorithms-Lib/dal-python "
         '"--config-settings=cmake.define.DAL_INSTALL_PREFIX='
-        '/absolute/path/to/build/stage/<platform-preset>"\n'
-        "Replace <platform-preset> with the preset used to stage DAL on this platform.\n"
-        "See ../../docs/installation.md#install-the-native-package-into-the-backend-environment.\n"
+        '/path/to/build/stage/<platform-preset>"\n'
+        "See README.md#native-dal-package.\n"
         f"Underlying error: {reason}"
     )
 
