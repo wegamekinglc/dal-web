@@ -2,11 +2,11 @@
 # Start the DAL web UI (FastAPI backend + React/Vite frontend) on Windows.
 #
 # Usage:
-#   pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/start.ps1
+#   pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1
 #
 # What it does:
 #   1. Verifies prerequisites (python 3.13+, uv, node, npm, curl).
-#   2. Reads the backend port from dal-web/frontend/vite.config.ts.
+#   2. Reads the backend port from frontend/vite.config.ts.
 #   3. Checks that both ports (backend + 5173) are free.
 #   4. Verifies the native DAL Python package is installed.
 #   5. Starts the backend (uvicorn) in the background.
@@ -15,7 +15,7 @@
 #   8. Prints the URLs.
 #
 # Logs are written under each server directory: .server.log (stdout) and
-# .server.log.err (stderr) for both dal-web/backend/ and dal-web/frontend/.
+# .server.log.err (stderr) for both backend/ and frontend/.
 # PIDs are stored in .server.pid next to the respective server directory, so
 # stop.ps1 can kill them cleanly.
 #
@@ -31,10 +31,10 @@ param()
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------
-# Resolve paths (this script lives in dal-web/scripts/)
+# Resolve paths (this script lives in scripts/)
 # ---------------------------------------------------------------------------
 $ScriptDir    = $PSScriptRoot
-$WebRoot      = Split-Path -Parent $ScriptDir        # dal-web
+$WebRoot      = Split-Path -Parent $ScriptDir        # repo root
 $BackendDir   = Join-Path $WebRoot 'backend'
 $FrontendDir  = Join-Path $WebRoot 'frontend'
 $FrontendPort = 5173
@@ -131,11 +131,11 @@ Write-Info "  python $pyVer, uv $uvVer, node $nodeV, npm $npmVer"
 Write-Info "Checking ports (backend=$BackendPort, frontend=$FrontendPort)..."
 
 if (-not (Test-PortFree $BackendPort)) {
-    Write-ErrLn "Port $BackendPort is already in use. Run dal-web/scripts/stop.ps1 first, or pick a different port in frontend/vite.config.ts."
+    Write-ErrLn "Port $BackendPort is already in use. Run scripts/stop.ps1 first, or pick a different port in frontend/vite.config.ts."
     exit 1
 }
 if (-not (Test-PortFree $FrontendPort)) {
-    Write-ErrLn "Port $FrontendPort is already in use. Run dal-web/scripts/stop.ps1 first."
+    Write-ErrLn "Port $FrontendPort is already in use. Run scripts/stop.ps1 first."
     exit 1
 }
 
@@ -292,6 +292,6 @@ Write-Output "  API docs:  http://127.0.0.1:$BackendPort/docs"
 Write-Output "  Backend:   PID $BackendPid"
 Write-Output "  Frontend:  PID $FrontendPid"
 Write-Output ''
-Write-Output "To stop:     pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1"
+Write-Output "To stop:     pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1"
 Write-Output "Logs:        backend/{.server.log, .server.log.err}, frontend/{.server.log, .server.log.err}"
 exit 0

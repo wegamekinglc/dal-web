@@ -2,10 +2,10 @@
 # Stop the DAL web UI (FastAPI backend + React/Vite frontend) on Windows.
 #
 # Usage:
-#   pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 [-Force]
+#   pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1 [-Force]
 #
 # What it does:
-#   1. Reads the backend port from dal-web/frontend/vite.config.ts.
+#   1. Reads the backend port from frontend/vite.config.ts.
 #   2. Kills each service by PID (from the .server.pid files written by
 #      start.ps1), walking the process tree so child workers (uvicorn reload
 #      worker, node/vite children) are also terminated. Falls back to a
@@ -26,10 +26,10 @@ param([switch]$Force)
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------
-# Resolve paths (this script lives in dal-web/scripts/)
+# Resolve paths (this script lives in scripts/)
 # ---------------------------------------------------------------------------
 $ScriptDir    = $PSScriptRoot
-$WebRoot      = Split-Path -Parent $ScriptDir        # dal-web
+$WebRoot      = Split-Path -Parent $ScriptDir        # repo root
 $BackendDir   = Join-Path $WebRoot 'backend'
 $FrontendDir  = Join-Path $WebRoot 'frontend'
 $FrontendPort = 5173
@@ -235,7 +235,7 @@ if ($remaining -eq 0) {
     Write-Output "$script:AnsiGreen[ok] DAL web UI stopped. Ports $BackendPort and $FrontendPort are free.$script:AnsiReset"
     exit 0
 } else {
-    Write-ErrLn "Some services could not be stopped. Try: pwsh -NoProfile -ExecutionPolicy Bypass -File dal-web/scripts/stop.ps1 -Force"
+    Write-ErrLn "Some services could not be stopped. Try: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1 -Force"
     Write-ErrLn "Or manually: Get-NetTCPConnection -LocalPort $BackendPort -State Listen | %{ Stop-Process -Id `$_.OwningProcess -Force }; Get-NetTCPConnection -LocalPort $FrontendPort -State Listen | %{ Stop-Process -Id `$_.OwningProcess -Force }"
     exit 1
 }
