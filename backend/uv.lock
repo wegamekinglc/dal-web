@@ -68,11 +68,21 @@ wheels = [
 ]
 
 [[package]]
+name = "dal-python"
+version = "2026.8.14"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/b3/9cc5b09189b9d9b46af555735878732309dbe02de221f6af9dd3f11313be/dal_python-2026.8.14-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1fa50a14ecdcbf4f5d9b68fa67383b2a93dbb8b7dcc8989e5a1231caeee7ca55", size = 3928428, upload-time = "2026-08-13T17:45:07.78Z" },
+    { url = "https://files.pythonhosted.org/packages/95/39/226d6f4315b8f49a5cdf6618a9fd12e700ca7bd4b528ef3d345241d039e8/dal_python-2026.8.14-cp313-cp313-win_amd64.whl", hash = "sha256:711807b5893da84df1419d76f1df0fe9d23a3bb4f3cdf83e6a1e33fe77133a34", size = 3242603, upload-time = "2026-08-13T17:45:09.347Z" },
+]
+
+[[package]]
 name = "dal-web-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "dal-python" },
     { name = "fastapi" },
     { name = "pydantic" },
     { name = "sqlalchemy" },
@@ -96,6 +106,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic" },
+    { name = "dal-python", specifier = ">=2026.8.14" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "pydantic", specifier = ">=2.6" },
