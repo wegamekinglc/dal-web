@@ -13,13 +13,23 @@ BACKEND = ROOT / "backend"
 
 
 def _requirement_name(requirement: str) -> str:
-    return re.split(r"[<>=!~;\[]", requirement, maxsplit=1)[0].strip().lower()
+    match = re.match(r"[A-Za-z0-9_.-]+", requirement.strip())
+    if match is None:
+        raise ValueError(f"invalid requirement: {requirement!r}")
+    return re.sub(r"[-_.]+", "-", match.group(0)).lower()
 
 
 def _declared_requirements() -> set[str]:
     with (BACKEND / "pyproject.toml").open("rb") as stream:
-        config = tomllib.load(stream)
-    return {_requirement_name(d) for d in config["project"]["dependencies"]}
+        metadata = tomllib.load(stream)
+    project = metadata["project"]
+    return {
+        _requirement_name(requirement)
+        for requirement in (
+            *project.get("dependencies", ()),
+            *project.get("optional-dependencies", {}).get("dev", ()),
+        )
+    }
 
 
 def _requirements_file() -> set[str]:
