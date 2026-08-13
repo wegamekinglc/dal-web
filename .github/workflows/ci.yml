@@ -30,7 +30,9 @@ jobs:
       - name: Native DAL web gateway smoke
         env:
           DAL_NUM_THREADS: 2
-        run: python .github/scripts/check_native_web_gateway.py
+        run: |
+          uv run --project backend --no-sync \
+            python .github/scripts/check_native_web_gateway.py
 
       - name: Consistency and boundary gates
         run: |
