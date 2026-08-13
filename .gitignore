@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Node / Vite
+node_modules/
+dist/
+tsconfig.tsbuildinfo
+*.local
+
+# Server logs
+.server.log
+.server.log.err
+.server.pid
+
+# Local SQLite database (default DAL_WEB_DB_URL target)
+.data/
+
+# Playwright local Chrome (setup-playwright.sh)
+chrome/
+chrome-libs/
