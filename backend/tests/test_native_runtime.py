@@ -24,8 +24,7 @@ def test_native_preflight_reports_install_command(monkeypatch):
     assert "Native DAL Python package is required" in message  # nosec B101
     assert "uv sync" in message  # nosec B101
     assert (  # nosec B101
-        "--config-settings=cmake.define.DAL_INSTALL_PREFIX="
-        "/path/to/build/stage/<platform-preset>"
+        "--config-settings=cmake.define.DAL_INSTALL_PREFIX=/path/to/build/stage/<platform-preset>"
     ) in message
     assert "Release-linux" not in message  # nosec B101
     assert "--no-build-isolation" not in message  # nosec B101
