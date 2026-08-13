@@ -14,10 +14,10 @@ if (testBackendFlag !== undefined && testBackendFlag !== "0" && testBackendFlag 
 const useTestBackend = testBackendFlag === "1";
 
 const frontendDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(frontendDir, "..", "..");
+const repoRoot = resolve(frontendDir, "..");
 
 // Playwright's bundled browsers are not available on every Linux distro, so
-// `dal-web/scripts/setup-playwright.sh` downloads Chrome into `<repo>/chrome`
+// `scripts/setup-playwright.sh` downloads Chrome into `<repo>/chrome`
 // and extracts its NSS runtime libraries into `<repo>/chrome-libs/extract`.
 const chromeDir = resolve(repoRoot, "chrome");
 const chromeLibBase = resolve(repoRoot, "chrome-libs", "extract", "usr", "lib");
@@ -76,7 +76,7 @@ function resolveChromeExecutable(): string {
   const executable = candidates.at(-1);
   if (!executable) {
     throw new Error(
-      `No Chrome binary found under ${chromeDir}. Run ./dal-web/scripts/setup-playwright.sh first.`
+      `No Chrome binary found under ${chromeDir}. Run ./scripts/setup-playwright.sh first.`
     );
   }
 
