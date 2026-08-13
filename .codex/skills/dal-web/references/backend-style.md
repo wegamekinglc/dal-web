@@ -1,7 +1,7 @@
 # dal-web Backend Code Style (Python / FastAPI)
 
 This rule governs the FastAPI backend under `backend/app/`. It is a sibling
-to [the DAL C++ style reference](../../../references/code-style.md) and
+to [the DAL C++ style reference](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/.claude/rules/code-style.md) and
 [the DAL web design system](design-system.md).
 
 ## Async-First Default
@@ -83,6 +83,6 @@ to [the DAL C++ style reference](../../../references/code-style.md) and
 
 ## References
 
-- C++ style: [code-style.md](../../../references/code-style.md)
+- C++ style: [code-style.md](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/.claude/rules/code-style.md)
 - Frontend design: [design-system.md](design-system.md)
 - Governs: `backend/app/`

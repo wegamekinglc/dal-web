@@ -1,7 +1,7 @@
 # dal-web Backend Code Style (Python / FastAPI)
 
 This rule governs the FastAPI backend under `backend/app/`. It is a sibling
-to `.claude/rules/code-style.md` (which covers the DAL C++ library) and to
+to `https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/.claude/rules/code-style.md` (which covers the DAL C++ library) and to
 `.claude/rules/dal-web-design.md` (which covers the React frontend).
 
 ## Async-First Default

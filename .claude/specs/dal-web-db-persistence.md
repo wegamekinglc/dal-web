@@ -2,7 +2,7 @@
 
 > **Artifact status: implemented history.** Database-backed storage and migrations have shipped.
 > Current setup and restart behavior are documented in `README.md` and
-> `docs/architecture.md`. The proposal language below describes the pre-implementation baseline.
+> `https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/docs/architecture.md`. The proposal language below describes the pre-implementation baseline.
 
 ## Goal
 
@@ -176,7 +176,7 @@ Modified:
 - `backend/tests/conftest.py` — DB-backed `store` fixture.
 - `backend/pyproject.toml` — add sqlalchemy, alembic.
 - `.gitignore` — ignore `.data/`.
-- `README.md`, `.claude/skills/dal-web-setup/SKILL.md`, `CLAUDE.md` — document the DB and `DAL_WEB_DB_URL`.
+- `README.md`, `.claude/skills/dal-web-setup/SKILL.md`, `https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/blob/master/CLAUDE.md` — document the DB and `DAL_WEB_DB_URL`.
 
 ## Acceptance criteria
 
