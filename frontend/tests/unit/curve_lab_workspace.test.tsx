@@ -377,7 +377,7 @@ describe("Curve Lab V2 workspace", () => {
       draft_id: draft.id,
       draft_revision: 1,
       draft_fingerprint: draft.fingerprint,
-      state: "RUNNING",
+      state: "QUEUED",
       stale: false,
       request: {},
       resolved_plan: { mode: "SINGLE" },

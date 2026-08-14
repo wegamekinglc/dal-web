@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import store_dependency
 from app.schemas import ModelCreate, ModelDefinition, ModelUpdate
-from app.services.store import ConflictError, NotFoundError, Store
+from app.services.store import Store
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 
@@ -36,10 +36,7 @@ async def get_model(
     model_id: str,
     store: Store = Depends(store_dependency),
 ) -> ModelDefinition:
-    try:
-        return store.get_model(model_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.get_model(model_id)
 
 
 @router.put("/{model_id}", response_model=ModelDefinition)
@@ -51,8 +48,6 @@ async def update_model(
     patch = payload.model_dump(exclude_none=True)
     try:
         return store.update_model(model_id, patch)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         # model.dal_kind_and_params() validation failure (e.g. kind=BS but no bs params)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -60,7 +55,4 @@ async def update_model(
 
 @router.delete("/{model_id}", status_code=204)
 async def delete_model(model_id: str, store: Store = Depends(store_dependency)) -> None:
-    try:
-        store.delete_model(model_id)
-    except ConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.delete_model(model_id)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+from tests.api_helpers import create_bs_model, create_european_product, wait_for_valuation
 
 
 def test_health_reports_dal_backend(client):
@@ -19,35 +19,6 @@ def test_product_templates_available(client):
     assert resp.status_code == 200
     keys = {t["key"] for t in resp.json()}
     assert {"european_call", "up_and_out_call", "snowball"} <= keys
-
-
-def _create_european_product(client) -> str:
-    payload = {
-        "name": "Test European Call",
-        "description": "",
-        "rows": [
-            {"date_kind": "label", "label": "STRIKE", "event": "100.0"},
-            {
-                "date_kind": "date",
-                "date": "2023-09-15",
-                "event": "call pays MAX(spot() - STRIKE, 0.0)",
-            },
-        ],
-    }
-    resp = client.post("/api/products", json=payload)
-    assert resp.status_code == 201
-    return resp.json()["id"]
-
-
-def _create_bs_model(client) -> str:
-    payload = {
-        "name": "BS ATM",
-        "kind": "BSModelData_",
-        "bs": {"spot": 100.0, "vol": 0.2, "rate": 0.0, "div": 0.0},
-    }
-    resp = client.post("/api/models", json=payload)
-    assert resp.status_code == 201
-    return resp.json()["id"]
 
 
 def _dupire_payload() -> dict:
@@ -92,21 +63,9 @@ def test_update_dupire_model_rejects_ragged_surface(client):
     assert resp.status_code == 422
 
 
-def _wait_for_valuation(client, valuation_id: str, max_polls: int = 20) -> dict:
-    """Poll a valuation until it is no longer 'running' (background task completed)."""
-    for _ in range(max_polls):
-        resp = client.get(f"/api/valuations/{valuation_id}")
-        assert resp.status_code == 200
-        body = resp.json()
-        if body["status"] != "running":
-            return body
-        time.sleep(0.1)
-    raise AssertionError(f"Valuation {valuation_id} did not complete within {max_polls} polls")
-
-
 def test_full_workflow_value_portfolio(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
 
     trade_resp = client.post(
         "/api/trades",
@@ -140,7 +99,7 @@ def test_full_workflow_value_portfolio(client):
     assert pending["target_kind"] == "portfolio"
 
     # Poll until the background pricing completes.
-    body = _wait_for_valuation(client, pending["id"])
+    body = wait_for_valuation(client, pending["id"])
     assert body["status"] == "completed"
     assert body["total_pv"] > 0.0
     assert "d_spot" in body["total_greeks"]
@@ -150,8 +109,8 @@ def test_full_workflow_value_portfolio(client):
 
 
 def test_trade_value_endpoint(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     trade_resp = client.post(
         "/api/trades",
         json={
@@ -170,7 +129,7 @@ def test_trade_value_endpoint(client):
     pending = val_resp.json()
     assert pending["status"] == "running"
 
-    body = _wait_for_valuation(client, pending["id"])
+    body = wait_for_valuation(client, pending["id"])
     assert body["status"] == "completed"
     assert 7.0 < body["total_pv"] < 9.0
 
@@ -194,7 +153,7 @@ def test_product_debug_endpoint(client):
 
 
 def test_create_trade_with_unknown_product_fails(client):
-    model_id = _create_bs_model(client)
+    model_id = create_bs_model(client)
     resp = client.post(
         "/api/trades",
         json={"name": "bad", "product_id": "missing", "model_id": model_id},
@@ -203,8 +162,8 @@ def test_create_trade_with_unknown_product_fails(client):
 
 
 def test_delete_product_referenced_by_trade_fails(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     client.post(
         "/api/trades",
         json={"name": "t", "product_id": product_id, "model_id": model_id},
@@ -215,8 +174,8 @@ def test_delete_product_referenced_by_trade_fails(client):
 
 
 def test_delete_model_referenced_by_trade_fails(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     client.post(
         "/api/trades",
         json={"name": "t", "product_id": product_id, "model_id": model_id},
@@ -227,13 +186,13 @@ def test_delete_model_referenced_by_trade_fails(client):
 
 
 def test_delete_product_without_references_succeeds(client):
-    product_id = _create_european_product(client)
+    product_id = create_european_product(client)
     resp = client.delete(f"/api/products/{product_id}")
     assert resp.status_code == 204
 
 
 def test_update_product(client):
-    product_id = _create_european_product(client)
+    product_id = create_european_product(client)
     resp = client.put(
         f"/api/products/{product_id}",
         json={"name": "Renamed Call"},
@@ -243,7 +202,7 @@ def test_update_product(client):
 
 
 def test_update_model(client):
-    model_id = _create_bs_model(client)
+    model_id = create_bs_model(client)
     resp = client.put(
         f"/api/models/{model_id}",
         json={"bs": {"spot": 110.0, "vol": 0.25, "rate": 0.01, "div": 0.0}},
@@ -253,8 +212,8 @@ def test_update_model(client):
 
 
 def test_update_trade(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     trade_resp = client.post(
         "/api/trades",
         json={"name": "orig", "product_id": product_id, "model_id": model_id},
@@ -270,8 +229,8 @@ def test_update_trade(client):
 
 
 def test_update_trade_with_missing_product_fails(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     trade_resp = client.post(
         "/api/trades",
         json={"name": "t", "product_id": product_id, "model_id": model_id},
@@ -285,8 +244,8 @@ def test_update_trade_with_missing_product_fails(client):
 
 
 def test_valuation_returns_running_then_completed(client):
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     trade_resp = client.post(
         "/api/trades",
         json={"name": "t", "product_id": product_id, "model_id": model_id, "notional": 1.0},
@@ -300,15 +259,15 @@ def test_valuation_returns_running_then_completed(client):
     assert pending["status"] == "running"
     assert pending["total_pv"] == 0.0
 
-    body = _wait_for_valuation(client, pending["id"])
+    body = wait_for_valuation(client, pending["id"])
     assert body["status"] == "completed"
     assert body["total_pv"] > 0.0
 
 
 def test_delete_unused_product_and_model(client):
     """End-to-end: after deleting a trade, its product/model can be deleted."""
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     trade_resp = client.post(
         "/api/trades",
         json={"name": "t", "product_id": product_id, "model_id": model_id},
@@ -325,8 +284,8 @@ def test_delete_unused_product_and_model(client):
 
 def test_valuation_rejects_path_count_over_cap(client):
     """The num_paths upper bound is enforced at the API boundary."""
-    product_id = _create_european_product(client)
-    model_id = _create_bs_model(client)
+    product_id = create_european_product(client)
+    model_id = create_bs_model(client)
     trade_resp = client.post(
         "/api/trades",
         json={"name": "t", "product_id": product_id, "model_id": model_id},

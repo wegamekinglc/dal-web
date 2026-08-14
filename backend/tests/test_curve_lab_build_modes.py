@@ -11,7 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-DISCOUNT_KEY = "clab/v1/local/discount/USD/OIS"
+from tests.curve_lab_helpers import DISCOUNT_KEY
+
 PROJECTION_KEY = "clab/v1/local/projection/USD/3M"
 
 

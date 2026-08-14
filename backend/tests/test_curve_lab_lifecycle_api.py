@@ -14,91 +14,19 @@ import pytest
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session
 
-
-def _document(raw_quote: str = "0.04") -> dict[str, object]:
-    return {
-        "schema_version": 2,
-        "mode": "SINGLE",
-        "as_of_date": "2026-01-15",
-        "market_snapshot_id": "market-2026-01-15",
-        "declarations": [
-            {
-                "component_key": "clab/v1/local/discount/USD/OIS",
-                "role": "DISCOUNT",
-                "currency": "USD",
-                "parameterization": "PIECEWISE_CONSTANT_FWD",
-            }
-        ],
-        "instruments": [
-            {
-                "instrument_type": "DEPOSIT",
-                "trade_date": "2026-01-15",
-                "start_date": "2026-01-16",
-                "maturity_date": "2026-04-16",
-                "currency_or_pair": "USD",
-                "raw_quote": raw_quote,
-                "source": "TEST",
-                "observed_at": "2026-01-15T00:00:00Z",
-                "included": True,
-                "terms": {"index": "USD-SOFR"},
-            }
-        ],
-        "dependency_version_ids": [],
-        "solver": {
-            "solve_mode": "EXACT",
-            "parameterization": "PIECEWISE_CONSTANT_FWD",
-        },
-    }
+from tests.curve_lab_helpers import (
+    DISCOUNT_KEY,
+    completed_build,
+    completed_import,
+    single_ois_document,
+    wait_for_job,
+)
 
 
 def _create_draft(client, raw_quote: str = "0.04") -> dict[str, object]:
-    response = client.post("/api/curve-lab/drafts", json=_document(raw_quote))
+    response = client.post("/api/curve-lab/drafts", json=single_ois_document(raw_quote))
     assert response.status_code == 201, response.text
     return response.json()
-
-
-def _wait_for_job(
-    client,
-    collection: str,
-    job_id: str,
-    terminal_states: set[str],
-) -> dict[str, object]:
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        record = client.get(f"/api/curve-lab/{collection}/{job_id}").json()
-        if record["state"] in terminal_states:
-            return record
-        time.sleep(0.01)
-    pytest.fail(f"{collection}/{job_id} did not reach a terminal state")
-
-
-def _completed_build(client, draft_id: str) -> dict[str, object]:
-    response = client.post(f"/api/curve-lab/drafts/{draft_id}/build-runs")
-    assert response.status_code == 202, response.text
-    admitted = response.json()
-    assert admitted["state"] == "QUEUED"
-    completed = _wait_for_job(
-        client,
-        "build-runs",
-        admitted["id"],
-        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
-    )
-    assert completed["state"] == "SUCCEEDED", completed
-    return completed
-
-
-def _completed_import(client, response) -> dict[str, object]:
-    assert response.status_code == 202, response.text
-    admitted = response.json()
-    assert admitted["state"] == "QUEUED"
-    completed = _wait_for_job(
-        client,
-        "import-jobs",
-        admitted["id"],
-        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
-    )
-    assert completed["state"] == "SUCCEEDED", completed
-    return completed
 
 
 def _completed_store_build(store, admitted: dict[str, object]) -> dict[str, object]:
@@ -137,9 +65,9 @@ def test_draft_create_get_and_restart_preserve_canonical_financial_document(
 def test_draft_rejects_percent_or_axis_override_before_any_row_or_audit(
     client,
 ) -> None:
-    percent = _document("4")
+    percent = single_ois_document("4")
     percent["instruments"][0]["input_convention"] = "PERCENT"
-    override = _document()
+    override = single_ois_document()
     override["instruments"][0]["normalized_quote"] = "0.04"
 
     first = client.post("/api/curve-lab/drafts", json=percent)
@@ -152,11 +80,11 @@ def test_draft_rejects_percent_or_axis_override_before_any_row_or_audit(
 
 
 def test_draft_contract_rejects_empty_topology_and_open_solver_or_terms(client) -> None:
-    empty = _document()
+    empty = single_ois_document()
     empty["instruments"] = []
-    open_solver = _document()
+    open_solver = single_ois_document()
     open_solver["solver"]["surprise"] = True
-    open_terms = _document()
+    open_terms = single_ois_document()
     open_terms["instruments"][0]["terms"]["surprise"] = True
 
     empty_response = client.post("/api/curve-lab/drafts", json=empty)
@@ -192,7 +120,7 @@ def test_draft_rejects_non_finite_wire_numbers_without_persistence(
 ) -> None:
     from app.services.store import get_store
 
-    document = _document()
+    document = single_ois_document()
     instrument = document["instruments"][0]
     if field_path.endswith("convexity_adjustment"):
         instrument.update(
@@ -212,7 +140,7 @@ def test_draft_rejects_non_finite_wire_numbers_without_persistence(
                 "currency_or_pair": "USD-EUR",
                 "raw_quote": "0.001",
                 "terms": {
-                    "component_key": "clab/v1/local/discount/USD/OIS",
+                    "component_key": DISCOUNT_KEY,
                     "domestic_notional": "1000000",
                     "foreign_notional": "900000",
                     "fx_spot": 1.1,
@@ -252,7 +180,7 @@ def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> Non
     else:
         pytest.fail("build run did not reach SUCCEEDED")
 
-    changed = _document("0.041")
+    changed = single_ois_document("0.041")
     changed["instruments"][0]["instrument_id"] = draft["document"]["instruments"][0][
         "instrument_id"
     ]
@@ -284,6 +212,27 @@ def test_draft_compare_and_swap_is_atomic_and_marks_old_run_stale(client) -> Non
     assert stale.status_code == 200
     assert stale.json()["stale"] is True
     assert stale.json()["draft_revision"] == 1
+
+
+def test_draft_update_rejects_a_non_integer_if_match_header(client) -> None:
+    draft = _create_draft(client)
+
+    response = client.put(
+        f"/api/curve-lab/drafts/{draft['id']}",
+        headers={"If-Match": '"not-a-revision"'},
+        json=single_ois_document(),
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["code"] == "DRAFT_REVISION_INVALID"
+    assert detail["message"] == "If-Match must contain one quoted integer revision."
+    assert detail["field"] == "If-Match"
+    assert detail["value"] == '"not-a-revision"'
+    assert detail["resource_id"] == draft["id"]
+    assert detail["details"] == {}
+    # The rejected update leaves the persisted draft untouched.
+    assert client.get(f"/api/curve-lab/drafts/{draft['id']}").json() == draft
 
 
 def test_concurrent_draft_updates_have_exactly_one_cas_winner(client) -> None:
@@ -331,11 +280,11 @@ def test_concurrent_draft_updates_have_exactly_one_cas_winner(client) -> None:
 
 def test_version_publication_is_cas_idempotent_immutable_and_archivable(client) -> None:
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     assert run["curve_views"] == [
         {
             "parameter_id": run["parameter_axis"][0]["parameter_id"],
-            "component_key": "clab/v1/local/discount/USD/OIS",
+            "component_key": DISCOUNT_KEY,
             "node_date": "2026-04-16",
             "side": "RIGHT",
             "discount_factor": pytest.approx(0.990077),
@@ -385,7 +334,7 @@ def test_concurrent_version_publication_returns_one_immutable_version(client) ->
     from app.services.store import get_store
 
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     request = CurveVersionCreateRequest.model_validate(
         {
             "draft_id": draft["id"],
@@ -424,7 +373,7 @@ def test_sqlite_publication_waits_for_a_prior_draft_update_and_rejects_old_revis
     from app.services.store import ConflictError, get_store
 
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     store = get_store()
     publisher = DbStore(store.url)
     writer_engine = create_engine(store.url)
@@ -511,7 +460,7 @@ def test_sqlite_publication_waits_for_a_prior_draft_update_and_rejects_old_revis
 
 def test_clone_rekeys_instruments_and_keeps_source_identity(client) -> None:
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -534,7 +483,7 @@ def test_clone_rekeys_instruments_and_keeps_source_identity(client) -> None:
 
 def test_failed_version_cas_and_failed_import_publish_nothing(client) -> None:
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     bad = {
         "draft_id": draft["id"],
         "draft_revision": 999,
@@ -558,7 +507,7 @@ def test_failed_version_cas_and_failed_import_publish_nothing(client) -> None:
 
 
 def test_unknown_eighth_family_has_zero_durable_side_effects(client) -> None:
-    payload = deepcopy(_document())
+    payload = deepcopy(single_ois_document())
     payload["instruments"][0]["instrument_type"] = "SWAPTION"
 
     response = client.post("/api/curve-lab/drafts", json=payload)
@@ -569,7 +518,7 @@ def test_unknown_eighth_family_has_zero_durable_side_effects(client) -> None:
 
 def test_allowed_native_import_round_trips_and_publishes_one_version(client) -> None:
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     built = client.post(
         "/api/curve-lab/versions",
         json={
@@ -589,8 +538,8 @@ def test_allowed_native_import_round_trips_and_publishes_one_version(client) -> 
         headers={"Content-Type": "application/json"},
     )
 
-    completed_import = _completed_import(client, imported)
-    imported_version = completed_import["resulting_version_id"]
+    import_job = completed_import(client, imported)
+    imported_version = import_job["resulting_version_id"]
     assert imported_version != built["id"]
     imported_payload = client.get(f"/api/curve-lab/versions/{imported_version}/native-json")
     assert imported_payload.status_code == 200
@@ -639,6 +588,92 @@ def test_import_create_acknowledges_queued_before_native_reconstruction(
         pytest.fail("import job did not reach SUCCEEDED")
 
 
+def test_import_rejects_a_malformed_runtime_manifest_header(client) -> None:
+    response = client.post(
+        "/api/curve-lab/import-jobs",
+        content=b'{"~type":"Bag","name":"curves","keys":[]}',
+        headers={
+            "Content-Type": "application/json",
+            "X-Curve-Lab-Runtime-Manifest": "not-json",
+        },
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["code"] == "IMPORT_RUNTIME_MANIFEST_INVALID"
+    assert detail["message"] == "Runtime manifest is not a closed CurveRuntimeManifestV1."
+    assert detail["field"] == "X-Curve-Lab-Runtime-Manifest"
+    assert detail["value"] is None
+    assert detail["resource_id"] is None
+    assert detail["details"] == {"errors": 1}
+
+
+def test_import_admission_rejects_when_the_queue_is_full(client, monkeypatch) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    gateway = gateway_module.get_gateway()
+    entered = threading.Barrier(3)
+    release = threading.Event()
+
+    def payload(index: int) -> bytes:
+        # Unique names keep request hashes (and therefore the derived import
+        # idempotency keys) distinct, so the 102 drained jobs publish
+        # independent versions instead of racing on the idempotency unique key.
+        return f'{{"~type":"Bag","name":"queue-fill-{index}","keys":[]}}'.encode()
+
+    def blocked_import(archive: bytes) -> tuple[bytes, str]:
+        if not release.is_set():
+            entered.wait(timeout=5)
+            assert release.wait(timeout=10)
+        return archive, "CURVE_SET"
+
+    monkeypatch.setattr(gateway, "import_curve_lab_archive", blocked_import)
+    accepted: list[str] = []
+    try:
+        for index in range(2):
+            response = client.post(
+                "/api/curve-lab/import-jobs",
+                content=payload(index),
+                headers={"Content-Type": "application/json"},
+            )
+            assert response.status_code == 202, response.text
+            accepted.append(response.json()["id"])
+        entered.wait(timeout=5)
+
+        for index in range(2, 102):
+            response = client.post(
+                "/api/curve-lab/import-jobs",
+                content=payload(index),
+                headers={"Content-Type": "application/json"},
+            )
+            assert response.status_code == 202, response.text
+            accepted.append(response.json()["id"])
+
+        rejected = client.post(
+            "/api/curve-lab/import-jobs",
+            content=payload(102),
+            headers={"Content-Type": "application/json"},
+        )
+        assert rejected.status_code == 429
+        assert rejected.headers["retry-after"] == "1"
+        detail = rejected.json()["detail"]
+        assert detail["code"] == "CURVE_LAB_QUEUE_FULL"
+        assert detail["message"] == "The Curve Lab worker queue is full."
+        assert detail["field"] == "queue"
+        assert detail["details"] == {"constraint": "at most 2 running and 100 queued jobs"}
+    finally:
+        release.set()
+
+    for job_id in accepted:
+        completed = wait_for_job(
+            client,
+            "import-jobs",
+            job_id,
+            {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+        )
+        assert completed["state"] == "SUCCEEDED", completed
+
+
 def test_import_worker_reuses_the_single_admitted_preflight(
     client,
     monkeypatch,
@@ -662,7 +697,7 @@ def test_import_worker_reuses_the_single_admitted_preflight(
         headers={"Content-Type": "application/json"},
     )
 
-    completed = _completed_import(client, response)
+    completed = completed_import(client, response)
     assert completed["state"] == "SUCCEEDED"
     assert calls == 1
 
@@ -789,7 +824,7 @@ def test_import_publication_rolls_back_version_when_job_write_fails(
     from app.services.db.models import CurveLabImportJobRow
 
     draft = _create_draft(client)
-    run = _completed_build(client, draft["id"])
+    run = completed_build(client, draft["id"])
     version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -815,7 +850,7 @@ def test_import_publication_rolls_back_version_when_job_write_fails(
             headers={"Content-Type": "application/json"},
         )
         assert response.status_code == 202
-        failed = _wait_for_job(
+        failed = wait_for_job(
             client,
             "import-jobs",
             response.json()["id"],
@@ -847,7 +882,7 @@ def test_database_restart_preserves_version_and_native_payload(tmp_path) -> None
     database_url = f"sqlite:///{tmp_path / 'restart.db'}"
     first = DbStore(database_url)
     first.create_all()
-    draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(_document()))
+    draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(single_ois_document()))
     run = _completed_store_build(
         first,
         create_build_run(first, DalGateway(), draft["id"]),
@@ -891,7 +926,7 @@ def test_database_restart_terminalizes_all_inflight_curve_lab_work(tmp_path) -> 
     database_url = f"sqlite:///{tmp_path / 'inflight-restart.db'}"
     first = DbStore(database_url)
     first.create_all()
-    draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(_document()))
+    draft = create_draft(first, CurveDraftDocumentInputV2.model_validate(single_ois_document()))
     run = _completed_store_build(
         first,
         create_build_run(first, DalGateway(), draft["id"]),
@@ -1142,7 +1177,7 @@ def test_curve_lab_migration_upgrade_downgrade_upgrade(tmp_path, monkeypatch) ->
 def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypatch) -> None:
     import app.services.dal_gateway as gateway_module
 
-    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    draft = client.post("/api/curve-lab/drafts", json=single_ois_document()).json()
     gateway = gateway_module.get_gateway()
 
     def fail_native_build(_document) -> bytes:
@@ -1154,7 +1189,7 @@ def test_native_build_failure_is_persisted_and_restart_readable(client, monkeypa
 
     assert response.status_code == 202
     assert response.json()["state"] == "QUEUED"
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         response.json()["id"],
@@ -1176,7 +1211,7 @@ def test_native_parameter_axis_failure_preserves_original_build_error(
 ) -> None:
     import app.services.dal_gateway as gateway_module
 
-    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    draft = client.post("/api/curve-lab/drafts", json=single_ois_document()).json()
     gateway = gateway_module.get_gateway()
 
     def fail_parameter_axis(_document, _payload) -> list[dict]:
@@ -1191,7 +1226,7 @@ def test_native_parameter_axis_failure_preserves_original_build_error(
     response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
 
     assert response.status_code == 202
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         response.json()["id"],
@@ -1210,7 +1245,7 @@ def test_build_create_acknowledges_queued_before_blocking_native_work(
 ) -> None:
     import app.services.dal_gateway as gateway_module
 
-    draft = client.post("/api/curve-lab/drafts", json=_document()).json()
+    draft = client.post("/api/curve-lab/drafts", json=single_ois_document()).json()
     gateway = gateway_module.get_gateway()
     original = gateway.build_curve_lab_archive
     entered = threading.Event()
@@ -1239,6 +1274,56 @@ def test_build_create_acknowledges_queued_before_blocking_native_work(
             break
         time.sleep(0.01)
     assert completed["state"] == "SUCCEEDED"
+
+
+def test_build_run_admission_rejects_when_the_queue_is_full(client, monkeypatch) -> None:
+    import app.services.dal_gateway as gateway_module
+
+    draft = _create_draft(client)
+    gateway = gateway_module.get_gateway()
+    original = gateway.build_curve_lab_archive
+    entered = threading.Barrier(3)
+    release = threading.Event()
+
+    def blocked_build(document, dependencies=()) -> bytes:
+        if not release.is_set():
+            entered.wait(timeout=5)
+            assert release.wait(timeout=10)
+        return original(document, dependencies)
+
+    monkeypatch.setattr(gateway, "build_curve_lab_archive", blocked_build)
+    accepted: list[str] = []
+    try:
+        for _ in range(2):
+            response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+            assert response.status_code == 202, response.text
+            accepted.append(response.json()["id"])
+        entered.wait(timeout=5)
+
+        for _ in range(100):
+            response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+            assert response.status_code == 202, response.text
+            accepted.append(response.json()["id"])
+
+        rejected = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
+        assert rejected.status_code == 429
+        assert rejected.headers["retry-after"] == "1"
+        detail = rejected.json()["detail"]
+        assert detail["code"] == "CURVE_LAB_QUEUE_FULL"
+        assert detail["message"] == "The Curve Lab worker queue is full."
+        assert detail["field"] == "queue"
+        assert detail["details"] == {"constraint": "at most 2 running and 100 queued jobs"}
+    finally:
+        release.set()
+
+    for run_id in accepted:
+        completed = wait_for_job(
+            client,
+            "build-runs",
+            run_id,
+            {"SUCCEEDED", "FAILED", "TIMED_OUT"},
+        )
+        assert completed["state"] == "SUCCEEDED", completed
 
 
 def test_queued_build_cannot_assume_a_later_draft_identity_or_publish(
@@ -1275,7 +1360,7 @@ def test_queued_build_cannot_assume_a_later_draft_identity_or_publish(
         assert admitted["state"] == "QUEUED"
         assert queued_snapshot_read.wait(timeout=5)
 
-        changed_document = _document("0.041")
+        changed_document = single_ois_document("0.041")
         changed_document["market_snapshot_id"] = "market-2026-01-16"
         changed_document["instruments"][0]["instrument_id"] = draft["document"]["instruments"][0][
             "instrument_id"
@@ -1290,7 +1375,7 @@ def test_queued_build_cannot_assume_a_later_draft_identity_or_publish(
     finally:
         release_worker.set()
 
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         admitted["id"],
@@ -1341,7 +1426,7 @@ def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch
     import app.services.dal_gateway as gateway_module
 
     missing_id = "f" * 32
-    document = _document()
+    document = single_ois_document()
     document["dependency_version_ids"] = [missing_id]
     draft = client.post("/api/curve-lab/drafts", json=document).json()
     gateway = gateway_module.get_gateway()
@@ -1362,7 +1447,7 @@ def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch
 
     assert response.status_code == 202
     assert response.json()["state"] == "QUEUED"
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         response.json()["id"],
@@ -1378,7 +1463,7 @@ def test_build_rejects_missing_dependency_before_native_work(client, monkeypatch
 
 def test_build_pins_resolved_dependency_identity_hash_and_root_kind(client) -> None:
     source_draft = _create_draft(client)
-    source_run = _completed_build(client, source_draft["id"])
+    source_run = completed_build(client, source_draft["id"])
     source_version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -1390,11 +1475,11 @@ def test_build_pins_resolved_dependency_identity_hash_and_root_kind(client) -> N
             "idempotency_key": "dependency",
         },
     ).json()
-    document = _document("0.041")
+    document = single_ois_document("0.041")
     document["dependency_version_ids"] = [source_version["id"]]
     dependent_draft = client.post("/api/curve-lab/drafts", json=document).json()
 
-    run = _completed_build(client, dependent_draft["id"])
+    run = completed_build(client, dependent_draft["id"])
     assert run["dependency_manifest"] == [
         {
             "version_id": source_version["id"],
@@ -1411,7 +1496,7 @@ def test_build_rejects_archived_dependency_before_native_work(
     import app.services.dal_gateway as gateway_module
 
     source_draft = _create_draft(client)
-    source_run = _completed_build(client, source_draft["id"])
+    source_run = completed_build(client, source_draft["id"])
     source_version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -1424,7 +1509,7 @@ def test_build_rejects_archived_dependency_before_native_work(
         },
     ).json()
     client.post(f"/api/curve-lab/versions/{source_version['id']}/archive")
-    document = _document("0.041")
+    document = single_ois_document("0.041")
     document["dependency_version_ids"] = [source_version["id"]]
     dependent_draft = client.post("/api/curve-lab/drafts", json=document).json()
     gateway = gateway_module.get_gateway()
@@ -1445,7 +1530,7 @@ def test_build_rejects_archived_dependency_before_native_work(
 
     assert response.status_code == 202
     assert response.json()["state"] == "QUEUED"
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         response.json()["id"],
@@ -1461,7 +1546,7 @@ def test_publication_rejects_dependency_archived_after_successful_build(
     client,
 ) -> None:
     source_draft = _create_draft(client)
-    source_run = _completed_build(client, source_draft["id"])
+    source_run = completed_build(client, source_draft["id"])
     source_version = client.post(
         "/api/curve-lab/versions",
         json={
@@ -1473,13 +1558,13 @@ def test_publication_rejects_dependency_archived_after_successful_build(
             "idempotency_key": "publication-dependency",
         },
     ).json()
-    dependent_document = _document("0.041")
+    dependent_document = single_ois_document("0.041")
     dependent_document["dependency_version_ids"] = [source_version["id"]]
     dependent_draft = client.post(
         "/api/curve-lab/drafts",
         json=dependent_document,
     ).json()
-    dependent_run = _completed_build(client, dependent_draft["id"])
+    dependent_run = completed_build(client, dependent_draft["id"])
 
     archived = client.post(f"/api/curve-lab/versions/{source_version['id']}/archive")
     published = client.post(

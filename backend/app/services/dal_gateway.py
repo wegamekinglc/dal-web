@@ -43,6 +43,7 @@ from app.services.calibrations import (
 )
 from app.services.curve_lab_fixings import canonical_utc_datetime
 from app.services.curve_lab_plan import resolved_declaration_order
+from app.services.instrument_order import canonical_instrument_order, native_instrument_name
 
 dal = load_native_dal()
 
@@ -327,7 +328,7 @@ class DalGateway:
             on_unbounded_plan_inspected(plan)
             normalized = request.request
             instruments = normalized.instruments
-            native_names = tuple(_native_instrument_name(item.kind) for item in instruments)
+            native_names = tuple(native_instrument_name(item.kind) for item in instruments)
             latest_end = max(item.maturity for item in instruments)
             execution_spec = self._build_single_spec(normalized, request.referenced_curves, plan)
             if execution_spec is not None and hasattr(
@@ -2670,14 +2671,9 @@ class DalGateway:
         builder.logDfScheme_ = getattr(
             self._dal.LogDfScheme, declaration.log_df_scheme or "LOG_LINEAR"
         )
-        canonical_instruments = sorted(
-            request.instruments,
-            key=lambda item: (
-                item.maturity,
-                item.start,
-                _native_instrument_name(item.kind),
-            ),
-        )
+        canonical_instruments = [
+            request.instruments[index] for index in canonical_instrument_order(request.instruments)
+        ]
         builder.instruments_ = [self._build_rate_instrument(item) for item in canonical_instruments]
         builder.knotDates_ = [
             self._native_date(node.date)
@@ -3683,18 +3679,6 @@ def _fallback_resolved_initial_guess(
     )
 
 
-def _native_instrument_name(kind: str) -> str:
-    return {
-        "DEPOSIT": "Deposit",
-        "FRA": "FRA",
-        "FUTURE": "Future",
-        "SWAP": "Swap",
-        "OIS_SWAP": "OISSwap",
-        "BASIS_SWAP": "BasisSwap",
-        "XCCY_SWAP": "CrossCurrencySwap",
-    }[kind]
-
-
 def _fallback_linear_parameters(values: list[float], node_count: int) -> dict[str, object]:
     if len(values) == 2 * node_count:
         return {
@@ -3925,13 +3909,7 @@ def _fallback_diagnostics(request: object, *, xccy: bool) -> tuple[InstrumentDia
     group = "basis" if xccy else "single"
     instruments = list(_fallback_instruments(request))
     if not xccy:
-        instruments.sort(
-            key=lambda instrument: (
-                instrument.maturity,
-                instrument.start,
-                _native_instrument_name(instrument.kind),
-            )
-        )
+        instruments = [instruments[index] for index in canonical_instrument_order(instruments)]
     return tuple(
         InstrumentDiagnosticDTO(
             instrument_id=f"{index + 1:032x}",

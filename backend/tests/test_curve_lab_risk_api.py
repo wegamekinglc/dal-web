@@ -11,87 +11,13 @@ from decimal import Decimal
 
 import pytest
 
-
-def _wait_for_job(
-    client,
-    collection: str,
-    job_id: str,
-    terminal_states: set[str],
-) -> dict[str, object]:
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
-        record = client.get(f"/api/curve-lab/{collection}/{job_id}").json()
-        if record["state"] in terminal_states:
-            return record
-        time.sleep(0.01)
-    pytest.fail(f"{collection}/{job_id} did not reach a terminal state")
-
-
-def _completed_risk(client, response) -> dict[str, object]:
-    assert response.status_code == 202, response.text
-    admitted = response.json()
-    assert admitted["state"] == "QUEUED"
-    completed = _wait_for_job(
-        client,
-        "risk-runs",
-        admitted["id"],
-        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
-    )
-    assert completed["state"] == "SUCCEEDED", completed
-    return completed
-
-
-def _completed_import(client, response) -> dict[str, object]:
-    assert response.status_code == 202, response.text
-    admitted = response.json()
-    assert admitted["state"] == "QUEUED"
-    completed = _wait_for_job(
-        client,
-        "import-jobs",
-        admitted["id"],
-        {"SUCCEEDED", "FAILED", "TIMED_OUT"},
-    )
-    assert completed["state"] == "SUCCEEDED", completed
-    return completed
-
-
-def _document() -> dict[str, object]:
-    return {
-        "schema_version": 2,
-        "mode": "SINGLE",
-        "as_of_date": "2026-01-15",
-        "market_snapshot_id": "market-2026-01-15",
-        "declarations": [
-            {
-                "component_key": "clab/v1/local/discount/USD/OIS",
-                "role": "DISCOUNT",
-                "currency": "USD",
-                "parameterization": "PIECEWISE_CONSTANT_FWD",
-            }
-        ],
-        "instruments": [
-            {
-                "instrument_type": "DEPOSIT",
-                "trade_date": "2026-01-15",
-                "start_date": "2026-01-15",
-                "maturity_date": "2027-01-15",
-                "currency_or_pair": "USD",
-                "raw_quote": "0.04",
-                "source": "TEST",
-                "observed_at": "2026-01-15T00:00:00Z",
-                "included": True,
-                "terms": {
-                    "component_key": "clab/v1/local/discount/USD/OIS",
-                    "index_name": "USD-SOFR",
-                },
-            }
-        ],
-        "dependency_version_ids": [],
-        "solver": {
-            "solve_mode": "EXACT",
-            "parameterization": "PIECEWISE_CONSTANT_FWD",
-        },
-    }
+from tests.curve_lab_helpers import (
+    DISCOUNT_KEY,
+    completed_import,
+    completed_risk,
+    single_ois_document,
+    wait_for_job,
+)
 
 
 def _publish_version(client) -> tuple[dict, dict]:
@@ -103,13 +29,20 @@ def _publish_version(client) -> tuple[dict, dict]:
         },
     )
     assert snapshot.status_code in {201, 409}, snapshot.text
-    draft_response = client.post("/api/curve-lab/drafts", json=_document())
+    draft_response = client.post(
+        "/api/curve-lab/drafts",
+        json=single_ois_document(
+            start_date="2026-01-15",
+            maturity_date="2027-01-15",
+            terms={"component_key": DISCOUNT_KEY, "index_name": "USD-SOFR"},
+        ),
+    )
     assert draft_response.status_code == 201, draft_response.text
     draft = draft_response.json()
     run_response = client.post(f"/api/curve-lab/drafts/{draft['id']}/build-runs")
     assert run_response.status_code == 202, run_response.text
     assert run_response.json()["state"] == "QUEUED"
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         run_response.json()["id"],
@@ -146,7 +79,7 @@ def _trade(index: int = 0) -> dict[str, object]:
             "forecast_tenor": "3M",
             "day_basis": "ACT_365F",
             "collateral": "OIS",
-            "discount_component_key": "clab/v1/local/discount/USD/OIS",
+            "discount_component_key": DISCOUNT_KEY,
         },
     }
 
@@ -237,8 +170,8 @@ def _historical_fra_trade() -> dict[str, object]:
             "index_name": "USD-SOFR",
             "fixing_hour": 11,
             "fixing_minute": 0,
-            "discount_component_key": "clab/v1/local/discount/USD/OIS",
-            "forecast_component_key": "clab/v1/local/discount/USD/OIS",
+            "discount_component_key": DISCOUNT_KEY,
+            "forecast_component_key": DISCOUNT_KEY,
         },
     }
 
@@ -374,9 +307,9 @@ def test_build_persists_exact_quote_and_parameter_axes(client) -> None:
             "global_quote_index": 0,
             "quote_id": run["request"]["instruments"][0]["instrument_id"],
             "instrument_id": run["request"]["instruments"][0]["instrument_id"],
-            "component_key": "clab/v1/local/discount/USD/OIS",
+            "component_key": DISCOUNT_KEY,
             "stage_id": "stage-0",
-            "group_id": "clab/v1/local/discount/USD/OIS",
+            "group_id": DISCOUNT_KEY,
             "stage_local_quote_index": 0,
             "quote_coordinate_kind": "RATE",
             "canonical_raw_unit": "DECIMAL",
@@ -394,7 +327,7 @@ def test_build_persists_exact_quote_and_parameter_axes(client) -> None:
             "parameter_id": (
                 "clab/v1/local/discount/USD/OIS:PIECEWISE_CONSTANT_FWD:2027-01-15:RIGHT"
             ),
-            "component_key": "clab/v1/local/discount/USD/OIS",
+            "component_key": DISCOUNT_KEY,
             "stage_id": "stage-0",
             "stage_local_parameter_index": 0,
             "component_local_parameter_index": 0,
@@ -408,7 +341,11 @@ def test_build_persists_exact_quote_and_parameter_axes(client) -> None:
 
 
 def test_log_discount_parameter_axis_comes_from_native_free_layout(client) -> None:
-    document = _document()
+    document = single_ois_document(
+        start_date="2026-01-15",
+        maturity_date="2027-01-15",
+        terms={"component_key": DISCOUNT_KEY, "index_name": "USD-SOFR"},
+    )
     document["declarations"][0]["parameterization"] = "LOG_DISCOUNT"
     document["solver"]["parameterization"] = "LOG_DISCOUNT"
     draft_response = client.post("/api/curve-lab/drafts", json=document)
@@ -417,7 +354,7 @@ def test_log_discount_parameter_axis_comes_from_native_free_layout(client) -> No
     run_response = client.post(f"/api/curve-lab/drafts/{draft_response.json()['id']}/build-runs")
 
     assert run_response.status_code == 202, run_response.text
-    run = _wait_for_job(
+    run = wait_for_job(
         client,
         "build-runs",
         run_response.json()["id"],
@@ -444,7 +381,7 @@ def test_base_pricing_reconstructs_selected_version_without_recalibration(
         stored["verification"]["document"],
         stored["native_payload_hash"],
     )
-    assert set(curves) == {"clab/v1/local/discount/USD/OIS"}
+    assert set(curves) == {DISCOUNT_KEY}
 
     seen: list[str] = []
 
@@ -467,7 +404,7 @@ def test_base_pricing_reconstructs_selected_version_without_recalibration(
                 "currency": "USD",
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             }
             for trade in trades
@@ -479,7 +416,7 @@ def test_base_pricing_reconstructs_selected_version_without_recalibration(
     request["measures"] = ["PV"]
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    completed = _completed_risk(client, response)
+    completed = completed_risk(client, response)
     assert completed["curve_version_id"] == version["id"]
     assert seen == [version["native_payload_hash"]]
 
@@ -501,13 +438,13 @@ def test_imported_runtime_manifest_enables_pv_and_node_risk(
             "X-Curve-Lab-Runtime-Manifest": json.dumps(manifest),
         },
     )
-    completed_import = _completed_import(client, imported)
-    imported_version_id = completed_import["resulting_version_id"]
+    import_job = completed_import(client, imported)
+    imported_version_id = import_job["resulting_version_id"]
 
     gateway = get_gateway()
 
     def price(document, trades, _evaluation_time, base_currency, **kwargs):
-        assert document["declarations"][0]["component_key"] == ("clab/v1/local/discount/USD/OIS")
+        assert document["declarations"][0]["component_key"] == DISCOUNT_KEY
         assert kwargs["curve_version"]["source_kind"] == "IMPORT"
         parameter_bumps = kwargs.get("parameter_bumps") or []
         pv = Decimal("12") + sum(
@@ -523,7 +460,7 @@ def test_imported_runtime_manifest_enables_pv_and_node_risk(
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
                 "aad_node_gradient": ["4"],
             }
@@ -537,10 +474,8 @@ def test_imported_runtime_manifest_enables_pv_and_node_risk(
 
     risk = client.post("/api/curve-lab/risk-runs", json=request)
 
-    completed_risk = _completed_risk(client, risk)
-    matrix = client.get(
-        f"/api/curve-lab/risk-runs/{completed_risk['id']}/matrices/trade-to-node"
-    ).json()
+    risk_run = completed_risk(client, risk)
+    matrix = client.get(f"/api/curve-lab/risk-runs/{risk_run['id']}/matrices/trade-to-node").json()
     assert matrix["method"] == "NATIVE_AAD_PARITY_VERIFIED"
     assert matrix["values"] == [["4"]]
 
@@ -944,7 +879,7 @@ def test_risk_queue_rejects_after_two_running_and_one_hundred_queued(
         release.set()
 
     for run_id in accepted:
-        completed = _wait_for_job(
+        completed = wait_for_job(
             client,
             "risk-runs",
             run_id,
@@ -960,7 +895,11 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
     import app.services.dal_gateway as gateway_module
 
     _, source = _publish_version(client)
-    dependent_document = _document()
+    dependent_document = single_ois_document(
+        start_date="2026-01-15",
+        maturity_date="2027-01-15",
+        terms={"component_key": DISCOUNT_KEY, "index_name": "USD-SOFR"},
+    )
     dependent_document["dependency_version_ids"] = [source["id"]]
     dependent_draft_response = client.post(
         "/api/curve-lab/drafts",
@@ -972,7 +911,7 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
         f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
     )
     assert dependent_run_response.status_code == 202, dependent_run_response.text
-    dependent_run = _wait_for_job(
+    dependent_run = wait_for_job(
         client,
         "build-runs",
         dependent_run_response.json()["id"],
@@ -1020,7 +959,7 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             }
         ]
@@ -1032,7 +971,7 @@ def test_risk_reuses_every_pinned_dependency_archive_after_publication_and_archi
 
     created = client.post("/api/curve-lab/risk-runs", json=request)
 
-    _completed_risk(client, created)
+    completed_risk(client, created)
     assert observed
     assert {content_hash for content_hash, _ in observed} == {source["native_payload_hash"]}
     assert all(payload for _, payload in observed)
@@ -1045,7 +984,11 @@ def test_admitted_risk_snapshot_survives_source_and_dependency_archive_without_r
     import app.services.curve_risk as curve_risk
 
     _, source = _publish_version(client)
-    dependent_document = _document()
+    dependent_document = single_ois_document(
+        start_date="2026-01-15",
+        maturity_date="2027-01-15",
+        terms={"component_key": DISCOUNT_KEY, "index_name": "USD-SOFR"},
+    )
     dependent_document["dependency_version_ids"] = [source["id"]]
     dependent_draft_response = client.post(
         "/api/curve-lab/drafts",
@@ -1057,7 +1000,7 @@ def test_admitted_risk_snapshot_survives_source_and_dependency_archive_without_r
         f"/api/curve-lab/drafts/{dependent_draft['id']}/build-runs"
     )
     assert dependent_run_response.status_code == 202, dependent_run_response.text
-    dependent_run = _wait_for_job(
+    dependent_run = wait_for_job(
         client,
         "build-runs",
         dependent_run_response.json()["id"],
@@ -1166,7 +1109,7 @@ def test_admitted_risk_snapshot_survives_source_and_dependency_archive_without_r
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             }
         ]
@@ -1208,7 +1151,7 @@ def test_staged_xccy_snapshot_preserves_dependency_axis_and_aad_order_after_arch
     )
     assert fixing_response.status_code == 201, fixing_response.text
 
-    domestic_key = "clab/v1/local/discount/USD/OIS"
+    domestic_key = DISCOUNT_KEY
     foreign_key = "clab/v1/local/discount/EUR/OIS"
     basis_key = "clab/v1/xccy/basis/USD-EUR/3M"
     domestic_id = "d" * 32
@@ -1869,7 +1812,7 @@ def test_risk_run_recalibrates_parallel_and_each_key_rate_and_persists_matrix(
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             }
         ]
@@ -1878,7 +1821,7 @@ def test_risk_run_recalibrates_parallel_and_each_key_rate_and_persists_matrix(
 
     created = client.post("/api/curve-lab/risk-runs", json=_request(version["id"]))
 
-    run = _completed_risk(client, created)
+    run = completed_risk(client, created)
     assert calls == ["0.04", "0.0401", "0.0401"]
     assert run["estimated_work"]["T"] == 1
     assert run["estimated_work"]["P"] == 1
@@ -1924,7 +1867,11 @@ def test_risk_quote_replay_delegates_to_the_exact_decimal_bump(monkeypatch) -> N
         return "0.0401"
 
     monkeypatch.setattr(curve_risk, "apply_exact_decimal_bump", apply)
-    document = _document()
+    document = single_ois_document(
+        start_date="2026-01-15",
+        maturity_date="2027-01-15",
+        terms={"component_key": DISCOUNT_KEY, "index_name": "USD-SOFR"},
+    )
     document["instruments"][0]["instrument_id"] = "a" * 32
     axis = [
         {
@@ -1949,7 +1896,7 @@ def test_import_job_is_readable_and_import_quote_risk_requires_lineage(client) -
         content=payload,
         headers={"Content-Type": "application/json"},
     )
-    job = _completed_import(client, imported)
+    job = completed_import(client, imported)
     assert client.get(f"/api/curve-lab/import-jobs/{job['id']}").json() == job
 
     request = _request(job["resulting_version_id"])
@@ -2012,7 +1959,7 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             },
             {
@@ -2023,7 +1970,7 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
                 "currency": base_currency,
                 "required_historical_fixings": [("USD-SOFR", "2026-01-14T11:00:00")],
                 "missing_historical_fixings": [("USD-SOFR", "2026-01-14T11:00:00")],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": (
                     "/home/builder/Derivatives-Algorithms-Lib/dal-cpp/"
                     "curve.cpp:412 CalibrateCurve(): Missing historical fixing USD-SOFR"
@@ -2038,7 +1985,7 @@ def test_base_pricing_partial_failure_uses_exact_discriminated_key_sets(
 
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    run = _completed_risk(client, response)
+    run = completed_risk(client, response)
     rows = run["result"]["pricing"]
     assert set(rows[0]) == {
         "trade_id",
@@ -2116,7 +2063,7 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             }
         ]
@@ -2147,7 +2094,7 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
             }
         ]
@@ -2169,7 +2116,7 @@ def test_requested_sensitivity_layers_are_persisted_with_explicit_axes_and_metho
 
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    run = _completed_risk(client, response)
+    run = completed_risk(client, response)
     assert run["estimated_work"]["N_param"] == 2
     assert run["estimated_work"]["N_jac"] == 2
     expected = {
@@ -2206,7 +2153,7 @@ def test_forbid_fallback_publishes_native_aad_only_after_central_parity(
                 "currency": base_currency,
                 "required_historical_fixings": [],
                 "missing_historical_fixings": [],
-                "dependency_component_keys": ["clab/v1/local/discount/USD/OIS"],
+                "dependency_component_keys": [DISCOUNT_KEY],
                 "error": "",
                 "aad_node_gradient": ["3"],
             }
@@ -2245,7 +2192,7 @@ def test_forbid_fallback_publishes_native_aad_only_after_central_parity(
 
     response = client.post("/api/curve-lab/risk-runs", json=request)
 
-    run = _completed_risk(client, response)
+    run = completed_risk(client, response)
     matrix = client.get(f"/api/curve-lab/risk-runs/{run['id']}/matrices/trade-to-node").json()
     assert run["estimated_work"]["N_param"] == 2
     assert run["estimated_work"]["parameter_bump_price_evaluations"] == 2
@@ -2315,7 +2262,7 @@ def test_aad_parity_failure_reuses_central_row_when_fallback_is_allowed(
     request["sensitivity_layers"] = ["TRADE_TO_NODE"]
     request["options"] = {"aad_fallback": "ALLOW"}
 
-    run = _completed_risk(client, client.post("/api/curve-lab/risk-runs", json=request))
+    run = completed_risk(client, client.post("/api/curve-lab/risk-runs", json=request))
 
     matrix = client.get(f"/api/curve-lab/risk-runs/{run['id']}/matrices/trade-to-node").json()
     assert matrix["method"] == "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"

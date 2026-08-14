@@ -8,16 +8,44 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.routers import calibrations, curve_lab, models, portfolios, products, system, trades
-from app.services.store import get_store, is_memory_mode
+from app.services.curve_lab_lifecycle import CurveLabLifecycleError
+from app.services.quote_canonicalization import QuoteCanonicalizationError
+from app.services.store import ConflictError, NotFoundError, get_store, is_memory_mode
 from app.services.templates import seed_demo_data
 
 logger = logging.getLogger(__name__)
+
+
+async def _curve_lab_lifecycle_exception_handler(
+    _request: Request, exc: CurveLabLifecycleError
+) -> JSONResponse:
+    """Map lifecycle failures to the stable Curve Lab error envelope."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
+
+
+async def _quote_canonicalization_exception_handler(
+    _request: Request, exc: QuoteCanonicalizationError
+) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": exc.as_detail()})
+
+
+async def _not_found_exception_handler(_request: Request, exc: NotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+async def _conflict_exception_handler(_request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 def _init_database() -> None:
@@ -145,6 +173,10 @@ def create_app() -> FastAPI:
         RequestValidationError,
         curve_lab.curve_lab_validation_exception_handler,
     )
+    app.add_exception_handler(CurveLabLifecycleError, _curve_lab_lifecycle_exception_handler)
+    app.add_exception_handler(QuoteCanonicalizationError, _quote_canonicalization_exception_handler)
+    app.add_exception_handler(NotFoundError, _not_found_exception_handler)
+    app.add_exception_handler(ConflictError, _conflict_exception_handler)
 
     generated_openapi: Callable[[], dict[str, Any]] = app.openapi
 

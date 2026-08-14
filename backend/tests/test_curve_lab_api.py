@@ -409,13 +409,13 @@ def test_exact_decimal_bump_rejects_a_move_erased_by_binary64() -> None:
     assert raised.value.value == "12345678901234567890.00000000000000000001"
 
 
-def test_curve_lab_canonical_json_preserves_exact_ascii_bytes_and_hash() -> None:
+def test_curve_lab_canonical_json_preserves_exact_utf8_bytes_and_hash() -> None:
     import hashlib
 
     from app.services.canonical_json import canonical_json_bytes, canonical_json_hash
 
     value = {"z": "é", "a": [1, True, None]}
-    expected = b'{"a":[1,true,null],"z":"\\u00e9"}'
+    expected = '{"a":[1,true,null],"z":"é"}'.encode()
 
     assert canonical_json_bytes(value) == expected
     assert canonical_json_hash(value) == hashlib.sha256(expected).hexdigest()

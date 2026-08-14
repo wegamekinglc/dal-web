@@ -1,4 +1,5 @@
-"""Persistence seam for portfolios, trades, products, models and valuations.
+"""Persistence seam for portfolios, trades, products, models, valuations,
+calibration runs, and Curve Lab records.
 
 Two implementations live behind this seam: the in-memory :class:`Store` (no
 external dependencies, lost on restart) and the database-backed
@@ -29,7 +30,7 @@ from app.services.calibration_store import (
     CurveDefinitionRecord,
     RawSingleWorkerAdmissionEvidence,
 )
-from app.services.calibrations import canonical_json_bytes
+from app.services.canonical_json import canonical_json_bytes
 from app.services.curve_lab_jobs import deadline_expired, soft_deadline_error
 
 
