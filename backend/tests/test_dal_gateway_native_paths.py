@@ -670,9 +670,7 @@ def test_price_curve_lab_trades_rejects_dependency_duplicating_selected_version(
     dependencies = [
         {
             **_version(dependency),
-            "verification": {
-                "document": {"declarations": [{"component_key": DISCOUNT_KEY}]}
-            },
+            "verification": {"document": {"declarations": [{"component_key": DISCOUNT_KEY}]}},
         }
     ]
 
@@ -687,8 +685,7 @@ def test_price_curve_lab_trades_rejects_dependency_duplicating_selected_version(
         )
 
     assert (
-        str(excinfo.value)
-        == f"selected version duplicates dependency component {DISCOUNT_KEY!r}"
+        str(excinfo.value) == f"selected version duplicates dependency component {DISCOUNT_KEY!r}"
     )
     # Both archives are hash-verified and restored before the duplicate check.
     assert dal.restored == [selected, dependency]
@@ -769,10 +766,7 @@ def test_price_curve_lab_trades_rejects_mismatched_aad_gradient() -> None:
             include_node_sensitivities=True,
         )
 
-    assert (
-        str(excinfo.value)
-        == "native AAD gradient does not match the persisted parameter axis"
-    )
+    assert str(excinfo.value) == "native AAD gradient does not match the persisted parameter axis"
     # Pricing ran natively before the AAD axis check rejected the gradient.
     assert dal.markets[0]["curve_components"] == {DISCOUNT_KEY: json.loads(payload)}
     assert dal.markets[0]["xccy_market"] is None

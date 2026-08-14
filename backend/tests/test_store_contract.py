@@ -447,9 +447,7 @@ def test_reconcile_curve_lab_inflight_fails_or_times_out_inflight_rows(any_store
     # A timed-out build keeps its diagnostics with the fit state flipped.
     assert timed_out[0]["diagnostics"]["fit_state"] == "TIMED_OUT"
     # Non-expired failures keep their diagnostics as they were.
-    assert (
-        any_store.get_curve_lab_build_run("build-queued")["diagnostics"]["fit_state"] == "QUEUED"
-    )
+    assert any_store.get_curve_lab_build_run("build-queued")["diagnostics"]["fit_state"] == "QUEUED"
 
     succeeded_build = any_store.get_curve_lab_build_run("build-succeeded")
     assert succeeded_build["state"] == "SUCCEEDED"

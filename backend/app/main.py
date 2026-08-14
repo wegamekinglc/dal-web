@@ -173,12 +173,8 @@ def create_app() -> FastAPI:
         RequestValidationError,
         curve_lab.curve_lab_validation_exception_handler,
     )
-    app.add_exception_handler(
-        CurveLabLifecycleError, _curve_lab_lifecycle_exception_handler
-    )
-    app.add_exception_handler(
-        QuoteCanonicalizationError, _quote_canonicalization_exception_handler
-    )
+    app.add_exception_handler(CurveLabLifecycleError, _curve_lab_lifecycle_exception_handler)
+    app.add_exception_handler(QuoteCanonicalizationError, _quote_canonicalization_exception_handler)
     app.add_exception_handler(NotFoundError, _not_found_exception_handler)
     app.add_exception_handler(ConflictError, _conflict_exception_handler)
 

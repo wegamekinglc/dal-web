@@ -475,9 +475,7 @@ def test_imported_runtime_manifest_enables_pv_and_node_risk(
     risk = client.post("/api/curve-lab/risk-runs", json=request)
 
     risk_run = completed_risk(client, risk)
-    matrix = client.get(
-        f"/api/curve-lab/risk-runs/{risk_run['id']}/matrices/trade-to-node"
-    ).json()
+    matrix = client.get(f"/api/curve-lab/risk-runs/{risk_run['id']}/matrices/trade-to-node").json()
     assert matrix["method"] == "NATIVE_AAD_PARITY_VERIFIED"
     assert matrix["values"] == [["4"]]
 

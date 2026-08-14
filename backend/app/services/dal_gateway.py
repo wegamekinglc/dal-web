@@ -2672,8 +2672,7 @@ class DalGateway:
             self._dal.LogDfScheme, declaration.log_df_scheme or "LOG_LINEAR"
         )
         canonical_instruments = [
-            request.instruments[index]
-            for index in canonical_instrument_order(request.instruments)
+            request.instruments[index] for index in canonical_instrument_order(request.instruments)
         ]
         builder.instruments_ = [self._build_rate_instrument(item) for item in canonical_instruments]
         builder.knotDates_ = [
@@ -3910,9 +3909,7 @@ def _fallback_diagnostics(request: object, *, xccy: bool) -> tuple[InstrumentDia
     group = "basis" if xccy else "single"
     instruments = list(_fallback_instruments(request))
     if not xccy:
-        instruments = [
-            instruments[index] for index in canonical_instrument_order(instruments)
-        ]
+        instruments = [instruments[index] for index in canonical_instrument_order(instruments)]
     return tuple(
         InstrumentDiagnosticDTO(
             instrument_id=f"{index + 1:032x}",

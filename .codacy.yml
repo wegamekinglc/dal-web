@@ -1,0 +1,7 @@
+---
+engines:
+  bandit:
+    exclude_paths:
+      # Test suites use plain asserts by design (pytest); Bandit B101 flags
+      # every one of them as a high-severity "assert used" finding.
+      - "backend/tests/**"
