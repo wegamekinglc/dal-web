@@ -149,8 +149,11 @@ describe("stepperStates", () => {
 
   it("reflects a running, succeeded and failed build", () => {
     expect(stepperStates({ ...base, buildState: "QUEUED" }).solve).toBe("running");
+    expect(stepperStates({ ...base, buildState: "RESOLVING_DEPENDENCIES" }).solve).toBe("running");
+    expect(stepperStates({ ...base, buildState: "SOLVING" }).solve).toBe("running");
     expect(stepperStates({ ...base, buildState: "SUCCEEDED" }).solve).toBe("done");
     expect(stepperStates({ ...base, buildState: "FAILED" }).solve).toBe("failed");
+    expect(stepperStates({ ...base, buildState: "TIMED_OUT" }).solve).toBe("failed");
   });
 
   it("completes validate only on the validated fit state", () => {

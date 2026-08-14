@@ -123,7 +123,9 @@ export interface CurveBuilderStepperInput {
   mode: string;
 }
 
-const NON_TERMINAL_BUILD_STATES = new Set(["ADMITTED", "QUEUED", "RUNNING"]);
+// Transient build-run states emitted by the backend (curve_lab_lifecycle.py):
+// QUEUED -> RESOLVING_DEPENDENCIES -> SOLVING, then a terminal state.
+const NON_TERMINAL_BUILD_STATES = new Set(["QUEUED", "RESOLVING_DEPENDENCIES", "SOLVING"]);
 
 export function stepperStates(
   input: CurveBuilderStepperInput,
