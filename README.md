@@ -6,7 +6,7 @@ Derivatives Algorithms Library (DAL).
 The visual Curve Lab build/version/pricing/risk contract is documented in the
 [Curve Lab guide](docs/curve-lab.md).
 
-* **Backend** -- FastAPI (Python `>= 3.13`).
+* **Backend** -- FastAPI (Python `>= 3.13, < 3.14`; dal-python publishes cp313-only wheels today).
 * **Frontend** -- React + TypeScript (Vite).
 * **DAL access** -- the backend talks to DAL **only** through its Python public
   API (the `dal` package). Every call is funnelled through a single integration
@@ -28,17 +28,21 @@ The visual Curve Lab build/version/pricing/risk contract is documented in the
 │   │   └── services/
 │   │       ├── dal_gateway.py   ← the ONLY place that imports the dal public API
 │   │       ├── store.py         Store seam: StoreProtocol + in-memory Store + get_store()
-│   │       ├── db/              SQLAlchemy 2.x DbStore (session / models / store_db) + migrations
+│   │       ├── db/              SQLAlchemy 2.x DbStore (session / models / store_db)
 │   │       ├── calibrations.py  asynchronous calibration orchestration + DTO persistence
-│   │       ├── curve_lab_*.py   V2 planning, lifecycle, jobs, fixings, and risk
+│   │       ├── curve_lab_*.py   V2 planning, lifecycle, jobs, and fixings
+│   │       ├── curve_risk.py    typed PV/DV01/KRD risk runs + sensitivity matrices
 │   │       ├── valuation.py     trade/portfolio pricing orchestration
 │   │       └── templates.py     product-builder presets + demo seed
+│   ├── migrations/            Alembic schema migrations
 │   └── tests/               pytest suite (fake dal module, no C++ build needed)
 └── frontend/                React + Vite SPA
     └── src/
         ├── api/client.ts    typed API client
         ├── components/      valuation, calibration fit/matrix, and quote-risk panels
-        └── pages/           Dashboard, portfolio pages, Valuations, Curves, CurveRun
+        ├── curves/          Curve Lab registry, builder/visualization helpers, examples
+        └── pages/           Dashboard, Portfolios, Trades, Models, ProductBuilder,
+                             Valuations, Curves, CurveRun
 ```
 
 ## How DAL is used
@@ -190,7 +194,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1           # grace
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1 -Force    # escalate to force kill
 ```
 
-Both launchers check their platform prerequisites, including Python ≥ 3.13,
+Both launchers check their platform prerequisites, including Python ≥ 3.13
+(and < 3.14 -- dal-python publishes cp313-only wheels; `uv` auto-provisions a
+matching 3.13 interpreter if needed),
 uv, node, and npm. The bash launcher also needs `curl`, `grep`, `nohup`, and
 either `ss` or `lsof`; its stopper needs `grep` and `lsof`. They verify ports `8001`
 (backend) and `5173` (frontend) are free, synchronize backend dependencies with
@@ -218,7 +224,7 @@ Once running, open **<http://localhost:5173>** in your browser. The Vite dev
 server proxies `/api` requests to the backend automatically (target port is
 `8001`, configured in `vite.config.ts`).
 
-### Backend (Python >= 3.13)
+### Backend (Python >= 3.13, < 3.14)
 
 Dependencies are managed with [uv](https://docs.astral.sh/uv/). From `backend`:
 
@@ -453,7 +459,7 @@ npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
 The vitest unit suite under `frontend/tests/unit/` covers the API client, the
 valuation panel, model-form parsing, formatting helpers, and Curve Lab visual
 and API state. It runs in jsdom against mocked API responses, needs neither a
-browser nor a backend, and also runs in the web-quality CI job.
+browser nor a backend, and also runs in the frontend CI job.
 
 The default Playwright command uses the native-only application startup path.
 CI uses an explicit canned DAL test double while retaining the real FastAPI

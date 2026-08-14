@@ -1,6 +1,6 @@
 """Valuation service: orchestrates trade / portfolio pricing via the gateway.
 
-The blocking path (``value_trade`` / ``value_portfolio`` / ``value_single_trade``)
+The blocking path (``value_portfolio`` / ``value_single_trade``)
 calls ``gateway.value`` directly and returns the completed result.  The
 asynchronous path (``value_portfolio_async`` / ``value_single_trade_async``)
 is a coroutine that creates a pending ``ValuationResult`` in the store,
