@@ -38,10 +38,7 @@ async def create_trade(
 
 @router.get("/{trade_id}", response_model=Trade)
 async def get_trade(trade_id: str, store: Store = Depends(store_dependency)) -> Trade:
-    try:
-        return store.get_trade(trade_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.get_trade(trade_id)
 
 
 @router.put("/{trade_id}", response_model=Trade)
@@ -51,10 +48,7 @@ async def update_trade(
     store: Store = Depends(store_dependency),
 ) -> Trade:
     patch = payload.model_dump(exclude_none=True)
-    try:
-        return store.update_trade(trade_id, patch)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.update_trade(trade_id, patch)
 
 
 @router.delete("/{trade_id}", status_code=204)
@@ -76,9 +70,6 @@ async def value_trade_endpoint(
     worker thread; poll ``GET /api/valuations/{id}`` until ``status`` becomes
     ``"completed"`` or ``"failed"``.
     """
-    try:
-        store.get_trade(trade_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    store.get_trade(trade_id)
 
     return await value_single_trade_async(store, gateway, trade_id, config)

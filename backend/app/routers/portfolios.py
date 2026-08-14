@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from app.dependencies import gateway_dependency, store_dependency
 from app.schemas import (
@@ -13,7 +13,7 @@ from app.schemas import (
     ValuationResult,
 )
 from app.services.dal_gateway import DalGateway
-from app.services.store import NotFoundError, Store
+from app.services.store import Store
 from app.services.valuation import value_portfolio_async
 
 router = APIRouter(prefix="/api/portfolios", tags=["portfolios"])
@@ -40,10 +40,7 @@ async def get_portfolio(
     portfolio_id: str,
     store: Store = Depends(store_dependency),
 ) -> Portfolio:
-    try:
-        return store.get_portfolio(portfolio_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.get_portfolio(portfolio_id)
 
 
 @router.delete("/{portfolio_id}", status_code=204)
@@ -56,10 +53,7 @@ async def portfolio_trades(
     portfolio_id: str,
     store: Store = Depends(store_dependency),
 ) -> list[Trade]:
-    try:
-        return store.portfolio_trades(portfolio_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.portfolio_trades(portfolio_id)
 
 
 @router.post("/{portfolio_id}/trades/{trade_id}", response_model=Portfolio)
@@ -68,10 +62,7 @@ async def add_trade(
     trade_id: str,
     store: Store = Depends(store_dependency),
 ) -> Portfolio:
-    try:
-        return store.add_trade_to_portfolio(portfolio_id, trade_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.add_trade_to_portfolio(portfolio_id, trade_id)
 
 
 @router.delete("/{portfolio_id}/trades/{trade_id}", response_model=Portfolio)
@@ -80,10 +71,7 @@ async def remove_trade(
     trade_id: str,
     store: Store = Depends(store_dependency),
 ) -> Portfolio:
-    try:
-        return store.remove_trade_from_portfolio(portfolio_id, trade_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return store.remove_trade_from_portfolio(portfolio_id, trade_id)
 
 
 @router.post("/{portfolio_id}/value", response_model=ValuationResult)
@@ -100,9 +88,6 @@ async def value_portfolio_endpoint(
     worker thread; poll ``GET /api/valuations/{id}`` until ``status`` becomes
     ``"completed"`` or ``"failed"``.
     """
-    try:
-        store.get_portfolio(portfolio_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    store.get_portfolio(portfolio_id)
 
     return await value_portfolio_async(store, gateway, portfolio_id, config)

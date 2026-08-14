@@ -29,7 +29,7 @@ from app.services.calibration_store import (
     CurveDefinitionRecord,
     RawSingleWorkerAdmissionEvidence,
 )
-from app.services.calibrations import canonical_json_bytes
+from app.services.canonical_json import canonical_json_bytes
 from app.services.curve_lab_jobs import deadline_expired, soft_deadline_error
 from app.services.db.models import (
     Base,

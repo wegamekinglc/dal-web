@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import math
 import time
@@ -43,6 +41,12 @@ from app.services.calibration_store import (
     CalibrationInstrumentRecord,
     CalibrationRunRecord,
     CurveDefinitionRecord,
+)
+from app.services.canonical_json import canonical_json_bytes, canonical_json_hash
+from app.services.instrument_order import (
+    canonical_instrument_order,
+    instrument_order_key,
+    native_instrument_name,
 )
 
 if TYPE_CHECKING:
@@ -110,20 +114,10 @@ def _thaw_json(value: FrozenJsonValue) -> object:
     return value
 
 
-def canonical_json_bytes(value: object) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
-
-
 def canonical_model_hash(value: object) -> str:
     if hasattr(value, "model_dump"):
         value = value.model_dump(mode="json")
-    return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+    return canonical_json_hash(value)
 
 
 def freeze_integrity_error_evidence(
@@ -984,18 +978,6 @@ def _validate_sequence_conventions(value: Sequence[object], path: list[str | int
         _validate_supported_conventions(item, [*path, index])
 
 
-def _native_instrument_label(kind: str) -> str:
-    return {
-        "DEPOSIT": "Deposit",
-        "FRA": "FRA",
-        "FUTURE": "Future",
-        "SWAP": "Swap",
-        "OIS_SWAP": "OISSwap",
-        "BASIS_SWAP": "BasisSwap",
-        "XCCY_SWAP": "CrossCurrencySwap",
-    }[kind]
-
-
 def _check_ambiguous_instrument_order(
     instruments: Sequence[object],
     location_prefix: list[str | int],
@@ -1006,9 +988,9 @@ def _check_ambiguous_instrument_order(
         native_name = (
             native_names[index]
             if native_names is not None
-            else _native_instrument_label(instrument.kind)
+            else native_instrument_name(instrument.kind)
         )
-        key = (instrument.maturity, instrument.start, native_name)
+        key = instrument_order_key(instrument, native_name)
         first = seen.get(key)
         if first is not None:
             _raise(
@@ -1047,14 +1029,7 @@ def _first_single_analytic_issue(
     report: object,
     native_names_by_input: tuple[str, ...],
 ) -> tuple[int, object]:
-    canonical_to_input = sorted(
-        range(len(request.instruments)),
-        key=lambda index: (
-            request.instruments[index].maturity,
-            request.instruments[index].start,
-            native_names_by_input[index],
-        ),
-    )
+    canonical_to_input = canonical_instrument_order(request.instruments, native_names_by_input)
     candidates: list[tuple[int, object]] = []
     for issue in report.issues:
         calibration_index = int(issue.instrument_index)
@@ -1619,14 +1594,7 @@ async def submit_single_calibration(
         native_solve_ms=None,
         serialization_ms=None,
     )
-    order = sorted(
-        range(len(request.instruments)),
-        key=lambda index: (
-            request.instruments[index].maturity,
-            request.instruments[index].start,
-            admission.native_names_by_input[index],
-        ),
-    )
+    order = canonical_instrument_order(request.instruments, admission.native_names_by_input)
     instruments = tuple(
         CalibrationInstrumentRecord(
             id=uuid4().hex,

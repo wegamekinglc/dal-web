@@ -37,7 +37,6 @@ from app.schemas.curve_lab import (
 )
 from app.services.archive_preflight import ArchiveLimits
 from app.services.curve_lab_lifecycle import (
-    CurveLabLifecycleError,
     _version_public,
     archive_version,
     clone_version,
@@ -62,12 +61,14 @@ from app.services.curve_risk import (
     get_risk_run,
 )
 from app.services.quote_canonicalization import (
-    QuoteCanonicalizationError,
     canonicalize_quote,
     render_quote,
 )
 
 router = APIRouter(prefix="/api/curve-lab", tags=["curve-lab"])
+
+# ``CurveLabLifecycleError`` and ``QuoteCanonicalizationError`` propagate to the
+# app-level exception handlers registered in ``app.main``.
 
 
 async def _read_bounded_request_body(
@@ -89,14 +90,6 @@ async def _read_bounded_request_body(
         if length > wire_bytes:
             break
     return b"".join(chunks)
-
-
-def _raise_lifecycle(exc: CurveLabLifecycleError) -> None:
-    raise HTTPException(
-        status_code=exc.status_code,
-        detail=exc.detail,
-        headers=exc.headers,
-    ) from exc
 
 
 @router.get("/capabilities", response_model=CurveLabCapabilitiesResponse)
@@ -124,14 +117,11 @@ async def get_curve_lab_capabilities() -> CurveLabCapabilitiesResponse:
 async def canonicalize_authoring_quote(
     request: CurveLabQuoteCanonicalizationRequest,
 ) -> CurveLabQuoteCanonicalizationResponse:
-    try:
-        return canonicalize_quote(
-            request.instrument_type,
-            request.input_lexeme,
-            request.input_convention,
-        )
-    except QuoteCanonicalizationError as exc:
-        raise HTTPException(status_code=422, detail=exc.as_detail()) from exc
+    return canonicalize_quote(
+        request.instrument_type,
+        request.input_lexeme,
+        request.input_convention,
+    )
 
 
 @router.post(
@@ -142,17 +132,14 @@ async def canonicalize_authoring_quote(
 async def render_authoring_quote(
     request: CurveLabQuoteRenderingRequest,
 ) -> CurveLabQuoteRenderingResponse:
-    try:
-        return CurveLabQuoteRenderingResponse(
-            rendered_quote=render_quote(
-                request.instrument_type,
-                request.canonical_raw_quote,
-                request.display_convention,
-                request.display_scale,
-            )
+    return CurveLabQuoteRenderingResponse(
+        rendered_quote=render_quote(
+            request.instrument_type,
+            request.canonical_raw_quote,
+            request.display_convention,
+            request.display_scale,
         )
-    except QuoteCanonicalizationError as exc:
-        raise HTTPException(status_code=422, detail=exc.as_detail()) from exc
+    )
 
 
 @router.post("/drafts", response_model=CurveDraftResponse, status_code=201)
@@ -160,18 +147,12 @@ async def create_curve_draft(
     request: CurveDraftDocumentInputV2,
     store=Depends(store_dependency),
 ) -> dict:
-    try:
-        return create_draft(store, request)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return create_draft(store, request)
 
 
 @router.get("/drafts/{draft_id}", response_model=CurveDraftResponse)
 async def get_curve_draft(draft_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return get_draft(store, draft_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return get_draft(store, draft_id)
 
 
 @router.put("/drafts/{draft_id}", response_model=CurveDraftResponse)
@@ -195,10 +176,7 @@ async def update_curve_draft(
                 "details": {},
             },
         ) from exc
-    try:
-        return update_draft(store, draft_id, revision, request)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return update_draft(store, draft_id, revision, request)
 
 
 @router.post(
@@ -211,18 +189,12 @@ async def create_curve_build_run(
     store=Depends(store_dependency),
     gateway=Depends(gateway_dependency),
 ) -> dict:
-    try:
-        return create_build_run(store, gateway, draft_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return create_build_run(store, gateway, draft_id)
 
 
 @router.get("/build-runs/{run_id}", response_model=CurveBuildRunResponse)
 async def get_curve_build_run(run_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return get_build_run(store, run_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return get_build_run(store, run_id)
 
 
 @router.post(
@@ -235,10 +207,7 @@ async def create_curve_version(
     response: Response,
     store=Depends(store_dependency),
 ) -> dict:
-    try:
-        result, created = create_version(store, request)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    result, created = create_version(store, request)
     response.status_code = 201 if created else 200
     return result
 
@@ -253,18 +222,12 @@ async def list_curve_versions(
 
 @router.get("/versions/{version_id}", response_model=CurveVersionResponse)
 async def get_curve_version(version_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return _version_public(get_version(store, version_id))
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return _version_public(get_version(store, version_id))
 
 
 @router.post("/versions/{version_id}/archive", response_model=CurveVersionResponse)
 async def archive_curve_version(version_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return archive_version(store, version_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return archive_version(store, version_id)
 
 
 @router.post(
@@ -273,20 +236,14 @@ async def archive_curve_version(version_id: str, store=Depends(store_dependency)
     status_code=201,
 )
 async def clone_curve_version(version_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return clone_version(store, version_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return clone_version(store, version_id)
 
 
 @router.get("/versions/{version_id}/native-json")
 async def get_curve_version_native_json(
     version_id: str, store=Depends(store_dependency)
 ) -> Response:
-    try:
-        payload = native_payload(store, version_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    payload = native_payload(store, version_id)
     return Response(content=payload, media_type="application/json")
 
 
@@ -298,10 +255,7 @@ async def get_curve_version_runtime_manifest(
     version_id: str,
     store=Depends(store_dependency),
 ) -> dict:
-    try:
-        return version_runtime_manifest(store, version_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return version_runtime_manifest(store, version_id)
 
 
 @router.post(
@@ -338,16 +292,13 @@ async def create_curve_import_job(
                 "details": {"errors": exc.error_count()},
             },
         ) from exc
-    try:
-        return import_native_json(
-            store,
-            gateway,
-            payload,
-            content_encoding,
-            runtime_manifest,
-        )
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return import_native_json(
+        store,
+        gateway,
+        payload,
+        content_encoding,
+        runtime_manifest,
+    )
 
 
 @router.get(
@@ -355,10 +306,7 @@ async def create_curve_import_job(
     response_model=CurveImportJobResponse,
 )
 async def get_curve_import_job(job_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return get_import_job(store, job_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return get_import_job(store, job_id)
 
 
 @router.post(
@@ -370,10 +318,7 @@ async def post_fixing_snapshot(
     request: FixingSnapshotCreateV1,
     store=Depends(store_dependency),
 ) -> dict:
-    try:
-        return create_fixing_snapshot(store, request)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return create_fixing_snapshot(store, request)
 
 
 @router.get(
@@ -384,10 +329,7 @@ async def read_fixing_snapshot(
     snapshot_id: str,
     store=Depends(store_dependency),
 ) -> dict:
-    try:
-        return get_fixing_snapshot(store, snapshot_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return get_fixing_snapshot(store, snapshot_id)
 
 
 @router.post(
@@ -401,10 +343,7 @@ async def create_curve_risk_run(
     store=Depends(store_dependency),
     gateway=Depends(gateway_dependency),
 ) -> dict:
-    try:
-        return await asyncio.to_thread(create_risk_run, store, gateway, request)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return await asyncio.to_thread(create_risk_run, store, gateway, request)
 
 
 @router.get(
@@ -413,10 +352,7 @@ async def create_curve_risk_run(
     response_model_exclude_unset=True,
 )
 async def get_curve_risk_run(run_id: str, store=Depends(store_dependency)) -> dict:
-    try:
-        return get_risk_run(store, run_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return get_risk_run(store, run_id)
 
 
 @router.get(
@@ -428,10 +364,7 @@ async def get_curve_risk_matrix(
     matrix_id: str,
     store=Depends(store_dependency),
 ) -> dict:
-    try:
-        return get_matrix(store, run_id, matrix_id)
-    except CurveLabLifecycleError as exc:
-        _raise_lifecycle(exc)
+    return get_matrix(store, run_id, matrix_id)
 
 
 async def curve_lab_validation_exception_handler(
