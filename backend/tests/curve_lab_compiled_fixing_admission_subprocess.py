@@ -5,13 +5,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
+from pathlib import Path
 
+# This script is executed directly (python tests/<name>.py), so only the tests/
+# directory is on sys.path. test_curve_lab_risk_api imports the shared helpers
+# via the ``tests.`` package, which requires the backend root on sys.path too.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from curve_lab_helpers import wait_for_job
 from fastapi.testclient import TestClient
 from test_curve_lab_risk_api import (
     _historical_fra_trade,
     _publish_version,
     _request,
-    _wait_for_job,
 )
 
 
@@ -60,7 +67,7 @@ def main() -> int:
                 "body": response.json(),
             }
             if response.status_code == 202:
-                row["terminal"] = _wait_for_job(
+                row["terminal"] = wait_for_job(
                     client,
                     "risk-runs",
                     response.json()["id"],

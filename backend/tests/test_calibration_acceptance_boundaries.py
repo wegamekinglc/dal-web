@@ -20,6 +20,7 @@ from tests.calibration_contract_fixtures import (
     future_knots,
     joint_capacity_request,
     joint_request,
+    matrix_metadata_request,
     single_request,
     staged_request,
     submit_and_wait,
@@ -1263,6 +1264,56 @@ def test_fix_escaped_byte_bound_uses_real_100x100_response_and_preview(
     after = store.get_calibration_run(str(completed["id"]))
     assert after.status == "completed"
     assert after.result_payload == before.result_payload
+
+
+@pytest.mark.parametrize(
+    ("include_jacobian", "include_effective_inverse", "field", "matrix", "expected_shape"),
+    [
+        (True, False, "include_jacobian", "jacobian", [100, 200]),
+        (False, True, "include_effective_inverse", "effective_inverse", [200, 100]),
+        (True, True, "include_jacobian", "jacobian", [100, 200]),
+    ],
+)
+def test_matrix_dimension_exceeded_rejects_before_admission(
+    client,
+    include_jacobian: bool,
+    include_effective_inverse: bool,
+    field: str,
+    matrix: str,
+    expected_shape: list[int],
+) -> None:
+    """MATRIX_DIMENSION_EXCEEDED — enabled matrices over 100x100 are pre-insert 422s."""
+    store = get_store()
+    gateway = get_gateway()
+    with (
+        mock.patch.object(
+            store,
+            "add_calibration_admission",
+            wraps=store.add_calibration_admission,
+        ) as insert,
+        mock.patch.object(
+            gateway,
+            "calibrate_single",
+            wraps=gateway.calibrate_single,
+        ) as native,
+    ):
+        response = client.post(
+            "/api/calibrations/single",
+            json=matrix_metadata_request(
+                include_jacobian=include_jacobian,
+                include_effective_inverse=include_effective_inverse,
+            ),
+        )
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "MATRIX_DIMENSION_EXCEEDED"
+    assert error["location"] == ["body", "options", field]
+    assert error["context"]["matrix"] == matrix
+    assert error["context"]["expected_shape"] == expected_shape
+    assert error["context"]["max_materialized_rows"] == 100
+    assert error["context"]["max_materialized_columns"] == 100
+    assert error["context"]["max_metadata_dimension"] == 200
+    assert insert.call_count == native.call_count == 0
 
 
 def _three_node_instruments(count: int) -> list[dict[str, object]]:

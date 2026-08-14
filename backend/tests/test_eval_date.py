@@ -10,7 +10,6 @@ fails and when concurrent in-flight requests carry different dates.
 from __future__ import annotations
 
 import asyncio
-import time
 from datetime import date
 
 import dal  # the fake installed by conftest
@@ -23,6 +22,13 @@ from app.schemas import (
     Trade,
     ValuationConfig,
 )
+from tests.api_helpers import (
+    create_bs_model,
+    create_european_product,
+    create_portfolio_with_trades,
+    create_trade,
+    wait_for_valuation,
+)
 
 SENTINEL = (2020, 1, 1)
 
@@ -32,76 +38,16 @@ def _set_global_eval_date(year: int, month: int, day: int) -> str:
     return repr(dal.EvaluationDate_Get())
 
 
-def _create_european_product(client, strike: str = "100.0") -> str:
-    payload = {
-        "name": "Call",
-        "description": "",
-        "rows": [
-            {"date_kind": "label", "label": "STRIKE", "event": strike},
-            {
-                "date_kind": "date",
-                "date": "2023-09-15",
-                "event": "call pays MAX(spot() - STRIKE, 0.0)",
-            },
-        ],
-    }
-    resp = client.post("/api/products", json=payload)
-    assert resp.status_code == 201
-    return resp.json()["id"]
-
-
-def _create_bs_model(client) -> str:
-    resp = client.post(
-        "/api/models",
-        json={
-            "name": "BS",
-            "kind": "BSModelData_",
-            "bs": {"spot": 100.0, "vol": 0.2, "rate": 0.0, "div": 0.0},
-        },
-    )
-    assert resp.status_code == 201
-    return resp.json()["id"]
-
-
-def _create_trade(client, product_id: str, model_id: str) -> str:
-    resp = client.post(
-        "/api/trades",
-        json={"name": "t", "product_id": product_id, "model_id": model_id, "notional": 1.0},
-    )
-    assert resp.status_code == 201
-    return resp.json()["id"]
-
-
-def _create_portfolio_with_trade(client, trade_id: str) -> str:
-    resp = client.post("/api/portfolios", json={"name": "PF"})
-    assert resp.status_code == 201
-    portfolio_id = resp.json()["id"]
-    add = client.post(f"/api/portfolios/{portfolio_id}/trades/{trade_id}")
-    assert add.status_code == 200
-    return portfolio_id
-
-
-def _wait_for_valuation(client, valuation_id: str, max_polls: int = 20) -> dict:
-    for _ in range(max_polls):
-        resp = client.get(f"/api/valuations/{valuation_id}")
-        assert resp.status_code == 200
-        body = resp.json()
-        if body["status"] != "running":
-            return body
-        time.sleep(0.1)
-    raise AssertionError(f"Valuation {valuation_id} did not settle within {max_polls} polls")
-
-
 def test_trade_valuation_restores_global_eval_date(client) -> None:
     sentinel = _set_global_eval_date(*SENTINEL)
-    trade_id = _create_trade(client, _create_european_product(client), _create_bs_model(client))
+    trade_id = create_trade(client, create_european_product(client), create_bs_model(client))
 
     resp = client.post(
         f"/api/trades/{trade_id}/value",
         json={"num_paths": 64, "enable_aad": False, "evaluation_date": "2022-09-15"},
     )
     assert resp.status_code == 200
-    body = _wait_for_valuation(client, resp.json()["id"])
+    body = wait_for_valuation(client, resp.json()["id"])
 
     assert body["status"] == "completed"
     assert repr(dal.EvaluationDate_Get()) == sentinel
@@ -109,15 +55,15 @@ def test_trade_valuation_restores_global_eval_date(client) -> None:
 
 def test_portfolio_valuation_restores_global_eval_date(client) -> None:
     sentinel = _set_global_eval_date(*SENTINEL)
-    trade_id = _create_trade(client, _create_european_product(client), _create_bs_model(client))
-    portfolio_id = _create_portfolio_with_trade(client, trade_id)
+    trade_id = create_trade(client, create_european_product(client), create_bs_model(client))
+    portfolio_id = create_portfolio_with_trades(client, [trade_id])
 
     resp = client.post(
         f"/api/portfolios/{portfolio_id}/value",
         json={"num_paths": 64, "enable_aad": False, "evaluation_date": "2022-09-15"},
     )
     assert resp.status_code == 200
-    body = _wait_for_valuation(client, resp.json()["id"])
+    body = wait_for_valuation(client, resp.json()["id"])
 
     assert body["status"] == "completed"
     assert repr(dal.EvaluationDate_Get()) == sentinel
@@ -125,7 +71,7 @@ def test_portfolio_valuation_restores_global_eval_date(client) -> None:
 
 def test_failed_trade_valuation_restores_global_eval_date(client, monkeypatch) -> None:
     sentinel = _set_global_eval_date(*SENTINEL)
-    trade_id = _create_trade(client, _create_european_product(client), _create_bs_model(client))
+    trade_id = create_trade(client, create_european_product(client), create_bs_model(client))
 
     def _boom(*args, **kwargs):
         raise RuntimeError("boom")
@@ -137,7 +83,7 @@ def test_failed_trade_valuation_restores_global_eval_date(client, monkeypatch) -
         json={"num_paths": 64, "enable_aad": False, "evaluation_date": "2022-09-15"},
     )
     assert resp.status_code == 200
-    body = _wait_for_valuation(client, resp.json()["id"])
+    body = wait_for_valuation(client, resp.json()["id"])
 
     assert body["trades"][0]["error"] is not None
     assert repr(dal.EvaluationDate_Get()) == sentinel
