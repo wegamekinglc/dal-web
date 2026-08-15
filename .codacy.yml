@@ -5,3 +5,8 @@ engines:
       # Test suites use plain asserts by design (pytest); Bandit B101 flags
       # every one of them as a high-severity "assert used" finding.
       - "backend/tests/**"
+  biome:
+    exclude_paths:
+      # Playwright e2e specs trip Biome's Qwik-framework rules
+      # (useQwikValidLexicalScope), which do not apply to this React project.
+      - "frontend/tests/**"

@@ -453,13 +453,20 @@ uv run --no-sync pytest     # uses a fake dal module (no C++ build needed)
 cd frontend
 npm run build               # type-check + production build
 npm test                    # vitest unit tests (jsdom; no browser or backend needed)
-npm run test:e2e            # Playwright smoke tests (starts/stops the web UI)
+npm run test:e2e            # Playwright browser tests (starts/stops the web UI)
 ```
 
 The vitest unit suite under `frontend/tests/unit/` covers the API client, the
 valuation panel, model-form parsing, formatting helpers, and Curve Lab visual
 and API state. It runs in jsdom against mocked API responses, needs neither a
 browser nor a backend, and also runs in the frontend CI job.
+
+The e2e suite under `frontend/tests/e2e/` covers the primary browser flows:
+navigation and the dashboard, trade/portfolio valuation lifecycles, CRUD and
+delete guards for products/models/trades/portfolios, product-builder
+templates and debug dumps, curve calibration runs, and the Curve Lab
+workspace. The CI e2e job uploads the Playwright report and traces as a
+workflow artifact when the suite fails.
 
 The default Playwright command uses the native-only application startup path.
 CI uses an explicit canned DAL test double while retaining the real FastAPI
