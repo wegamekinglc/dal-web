@@ -41,7 +41,7 @@ async function seedCompletedTradeValuation(
   page: Page,
   tradeName: string,
   notional: number
-) {
+): Promise<string> {
   const productResp = await page.request.post("/api/products", {
     data: {
       name: `${tradeName} Product`,
@@ -106,6 +106,7 @@ async function seedCompletedTradeValuation(
       { timeout: 15_000 }
     )
     .toBe("completed");
+  return pending.id;
 }
 
 test("dashboard renders entity counts and recent valuation runs", async ({
