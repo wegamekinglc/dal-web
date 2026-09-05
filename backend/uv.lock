@@ -69,11 +69,11 @@ wheels = [
 
 [[package]]
 name = "dal-python"
-version = "2026.8.14"
+version = "2026.9.5"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/b3/9cc5b09189b9d9b46af555735878732309dbe02de221f6af9dd3f11313be/dal_python-2026.8.14-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1fa50a14ecdcbf4f5d9b68fa67383b2a93dbb8b7dcc8989e5a1231caeee7ca55", size = 3928428, upload-time = "2026-08-13T17:45:07.78Z" },
-    { url = "https://files.pythonhosted.org/packages/95/39/226d6f4315b8f49a5cdf6618a9fd12e700ca7bd4b528ef3d345241d039e8/dal_python-2026.8.14-cp313-cp313-win_amd64.whl", hash = "sha256:711807b5893da84df1419d76f1df0fe9d23a3bb4f3cdf83e6a1e33fe77133a34", size = 3242603, upload-time = "2026-08-13T17:45:09.347Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/6a/e35e7b20c0d5cffaa49555811024ef9afdb94f31415f91d64eb6256d9d52/dal_python-2026.9.5-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f8d56829884b42d19310140f39cc5b0ffe1476f3e008059ccd72194cbb7c67b5", size = 4217288, upload-time = "2026-09-05T06:45:01.961Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/a4/7778b70bf6fcb7888bcce7d521e7a798470fcffc069a0a649e8ac65231a9/dal_python-2026.9.5-cp313-cp313-win_amd64.whl", hash = "sha256:cce30dc4c344fa89e10ba8e6435e0e539304d665050fbc3208c0cb45e9ec7f7b", size = 3457259, upload-time = "2026-09-05T06:45:04.067Z" },
 ]
 
 [[package]]
@@ -106,7 +106,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic" },
-    { name = "dal-python", specifier = ">=2026.8.14" },
+    { name = "dal-python", specifier = ">=2026.9.5" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "pydantic", specifier = ">=2.6" },

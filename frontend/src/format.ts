@@ -28,6 +28,8 @@ export function css(...classNames: (string | false | undefined)[]): { className:
   return { className: classNames.filter(Boolean).join(" ") };
 }
 
-export function inlineStyle(style: Record<string, string | number>): { style: Record<string, string | number> } {
+export function inlineStyle(style: Record<string, string | number>): {
+  style: Record<string, string | number>;
+} {
   return { style };
 }

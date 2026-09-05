@@ -83,7 +83,7 @@ Runtime configuration:
 The backend imports the compiled `dal` package (the
 [dal-python](https://github.com/wegamekinglc/Derivatives-Algorithms-Lib/tree/master/dal-python)
 pybind11 bindings) directly -- it is the sole pricing engine, with no
-pure-Python fallback. `dal-python>=2026.8.14` is a declared backend
+pure-Python fallback. `dal-python>=2026.9.5` is a declared backend
 dependency, so `uv sync` installs the published wheel from PyPI; no C++ build
 is needed for normal development and deployment.
 

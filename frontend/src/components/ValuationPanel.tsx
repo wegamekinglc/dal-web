@@ -113,9 +113,7 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
             value={numPaths}
             onChange={(e) => {
               const v = Number(e.target.value);
-              setNumPaths(
-                Number.isFinite(v) && v >= 1 ? Math.min(MAX_PATHS, Math.floor(v)) : 1,
-              );
+              setNumPaths(Number.isFinite(v) && v >= 1 ? Math.min(MAX_PATHS, Math.floor(v)) : 1);
             }}
           />
         </label>
@@ -214,7 +212,11 @@ export default function ValuationPanel({ onRun, title = "Run valuation" }: Props
                           <span {...css("muted")}>err: {t.error}</span>
                         ) : (
                           Object.entries(t.greeks).map(([k, v]) => (
-                            <span {...css("pill", "greek")} key={k} {...inlineStyle({ marginRight: 4 })}>
+                            <span
+                              {...css("pill", "greek")}
+                              key={k}
+                              {...inlineStyle({ marginRight: 4 })}
+                            >
                               {k}: {fmtNum(v, 2)}
                             </span>
                           ))

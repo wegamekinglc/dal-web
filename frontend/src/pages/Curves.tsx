@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  api,
   ApiClientError,
+  api,
   type CalibrationKind,
   type CurveLabCanonicalQuote,
 } from "../api/client";
@@ -13,7 +13,7 @@ import CurveLabWorkspace, {
 } from "../components/CurveLabWorkspace";
 import PageHeader from "../components/PageHeader";
 import { calibrationExamples } from "../curves/examples";
-import { locateCalibrationField, type LocatedField } from "../curves/visualization";
+import { type LocatedField, locateCalibrationField } from "../curves/visualization";
 import { css } from "../format";
 
 const MODES: { value: CalibrationKind; label: string; note: string }[] = [
@@ -24,12 +24,12 @@ const MODES: { value: CalibrationKind; label: string; note: string }[] = [
 
 function formattedExample(kind: CalibrationKind): string {
   switch (kind) {
-  case "single":
-    return JSON.stringify(calibrationExamples.single, null, 2);
-  case "xccy_staged":
-    return JSON.stringify(calibrationExamples.xccy_staged, null, 2);
-  case "xccy_joint":
-    return JSON.stringify(calibrationExamples.xccy_joint, null, 2);
+    case "single":
+      return JSON.stringify(calibrationExamples.single, null, 2);
+    case "xccy_staged":
+      return JSON.stringify(calibrationExamples.xccy_staged, null, 2);
+    case "xccy_joint":
+      return JSON.stringify(calibrationExamples.xccy_joint, null, 2);
   }
 }
 
@@ -45,9 +45,7 @@ interface PresentedCalibrationError {
 }
 
 function calibrationErrorDetail(value: unknown): CalibrationErrorDetail {
-  return typeof value === "object" && value !== null
-    ? value as CalibrationErrorDetail
-    : {};
+  return typeof value === "object" && value !== null ? (value as CalibrationErrorDetail) : {};
 }
 
 function presentCalibrationError(reason: unknown): PresentedCalibrationError {
@@ -81,18 +79,13 @@ export default function Curves() {
   const [error, setError] = useState<string | null>(null);
   const [located, setLocated] = useState<LocatedField | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [canonicalTarget, setCanonicalTarget] =
-    useState<CurveLabCanonicalTarget | null>(null);
+  const [canonicalTarget, setCanonicalTarget] = useState<CurveLabCanonicalTarget | null>(null);
   const workspaceRef = useRef<CurveLabWorkspaceHandle>(null);
   const lines = useMemo(() => source.split("\n").length, [source]);
-  const applyCanonicalQuote = (
-    quote: CurveLabCanonicalQuote,
-    targetToken?: number,
-  ): boolean => (
+  const applyCanonicalQuote = (quote: CurveLabCanonicalQuote, targetToken?: number): boolean =>
     targetToken === undefined
       ? false
-      : workspaceRef.current?.applyCanonicalQuote(quote, targetToken) ?? false
-  );
+      : (workspaceRef.current?.applyCanonicalQuote(quote, targetToken) ?? false);
 
   return (
     <div {...css("curve-workbench")}>
@@ -102,10 +95,7 @@ export default function Curves() {
         subtitle="Construct deterministic curve sets from instruments, dependencies and conventions."
       />
 
-      <CurveLabWorkspace
-        ref={workspaceRef}
-        onCanonicalTargetChange={setCanonicalTarget}
-      />
+      <CurveLabWorkspace ref={workspaceRef} onCanonicalTargetChange={setCanonicalTarget} />
 
       <details {...css("curve-builder-legacy")}>
         <summary>Quote authoring tools</summary>
@@ -144,7 +134,12 @@ export default function Curves() {
         <div {...css("workbench-layout")}>
           <aside {...css("workbench-outline")}>
             <h2>Request anatomy</h2>
-            {["Declaration & representation", "Knots & initial seeds", "Instruments & conventions", "Solver & matrix settings"].map((item, index) => (
+            {[
+              "Declaration & representation",
+              "Knots & initial seeds",
+              "Instruments & conventions",
+              "Solver & matrix settings",
+            ].map((item, index) => (
               <div key={item} {...css("outline-row", located?.row === index && "has-error")}>
                 <span>{index + 1}</span>
                 <p>{item}</p>
@@ -187,7 +182,9 @@ export default function Curves() {
             </label>
             {error && (
               <div {...css("error", "editor-error")}>
-                <strong>{located ? `${located.section} · ${located.field}` : "Request error"}</strong>
+                <strong>
+                  {located ? `${located.section} · ${located.field}` : "Request error"}
+                </strong>
                 <span>{error}</span>
               </div>
             )}
@@ -204,7 +201,8 @@ export default function Curves() {
                   }
                   setSubmitting(true);
                   setError(null);
-                  void api.submitCalibration(mode, request.body)
+                  void api
+                    .submitCalibration(mode, request.body)
                     .then((run) => {
                       navigate(`/curves/runs/${run.id}`);
                     })

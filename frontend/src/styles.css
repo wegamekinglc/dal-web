@@ -1,5 +1,5 @@
 /* Import distinctive fonts */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap");
 
 :root {
   /* Financial Terminal palette - Professional & Authoritative */
@@ -66,7 +66,6 @@ a {
 
 /* Top navigation bar */
 .topbar {
-  background: var(--bg-2);
   border-bottom: 1px solid var(--border);
   padding: 0 24px;
   display: flex;
@@ -101,8 +100,13 @@ a {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .brand small {
@@ -246,7 +250,9 @@ button.curve-lab-flow-tab:last-child {
 button.curve-lab-flow-tab > span {
   grid-row: 1 / 3;
   color: var(--text-muted);
-  font: 500 10px "JetBrains Mono", monospace;
+  font:
+    500 10px "JetBrains Mono",
+    monospace;
 }
 
 button.curve-lab-flow-tab strong {
@@ -275,7 +281,9 @@ button.curve-lab-flow-tab.active > span {
   border: 1px solid var(--green);
   background: var(--green-dim);
   color: var(--green);
-  font: 500 11px "JetBrains Mono", monospace;
+  font:
+    500 11px "JetBrains Mono",
+    monospace;
 }
 
 .curve-lab-flow-layout,
@@ -349,7 +357,9 @@ button.curve-lab-flow-tab.active > span {
 .curve-lab-actions label > span,
 .curve-lab-actions dt {
   color: var(--text-muted);
-  font: 500 10px "JetBrains Mono", monospace;
+  font:
+    500 10px "JetBrains Mono",
+    monospace;
   text-transform: uppercase;
 }
 
@@ -363,7 +373,9 @@ button.curve-lab-flow-tab.active > span {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font: 500 11px "JetBrains Mono", monospace;
+  font:
+    500 11px "JetBrains Mono",
+    monospace;
   text-overflow: ellipsis;
 }
 
@@ -409,7 +421,9 @@ button.curve-lab-flow-tab.active > span {
   border-radius: var(--radius);
   color: var(--accent);
   cursor: pointer;
-  font: 600 11px "JetBrains Mono", monospace;
+  font:
+    600 11px "JetBrains Mono",
+    monospace;
 }
 
 .file-button input {
@@ -454,7 +468,9 @@ button.curve-lab-flow-tab.active > span {
 .curve-lab-authoring-grid label > span,
 .curve-lab-canonical-output span {
   color: var(--text-dim);
-  font: 500 10px "JetBrains Mono", monospace;
+  font:
+    500 10px "JetBrains Mono",
+    monospace;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -467,7 +483,9 @@ button.curve-lab-flow-tab.active > span {
   border-radius: var(--radius);
   background: var(--bg);
   color: var(--text);
-  font: 500 12px "JetBrains Mono", monospace;
+  font:
+    500 12px "JetBrains Mono",
+    monospace;
 }
 
 .curve-lab-boundary-note {
@@ -496,19 +514,25 @@ button.curve-lab-flow-tab.active > span {
 
 .curve-lab-canonical-output strong {
   color: var(--green);
-  font: 600 13px "JetBrains Mono", monospace;
+  font:
+    600 13px "JetBrains Mono",
+    monospace;
 }
 
 .curve-lab-canonical-output small {
   color: var(--text-muted);
-  font: 500 10px "JetBrains Mono", monospace;
+  font:
+    500 10px "JetBrains Mono",
+    monospace;
 }
 
 .eyebrow {
   display: block;
   margin-bottom: 8px;
   color: var(--accent);
-  font: 600 10px/1 "JetBrains Mono", monospace;
+  font:
+    600 10px / 1 "JetBrains Mono",
+    monospace;
   letter-spacing: 1.6px;
   text-transform: uppercase;
 }
@@ -548,7 +572,9 @@ button.curve-lab-flow-tab.active > span {
 
 .workbench-stat strong {
   color: var(--accent);
-  font: 700 24px/1 "JetBrains Mono", monospace;
+  font:
+    700 24px / 1 "JetBrains Mono",
+    monospace;
 }
 
 .workbench-stat span {
@@ -584,7 +610,9 @@ button.mode-tab {
 button.mode-tab > span {
   grid-row: 1 / 3;
   color: var(--text-muted);
-  font: 500 11px "JetBrains Mono", monospace;
+  font:
+    500 11px "JetBrains Mono",
+    monospace;
 }
 
 button.mode-tab strong {
@@ -644,7 +672,9 @@ button.mode-tab.active strong {
 
 .outline-row > span {
   color: var(--text-muted);
-  font: 500 10px "JetBrains Mono", monospace;
+  font:
+    500 10px "JetBrains Mono",
+    monospace;
 }
 
 .outline-row p {
@@ -666,7 +696,9 @@ button.mode-tab.active strong {
 
 .contract-note strong {
   color: var(--green);
-  font: 600 10px "JetBrains Mono", monospace;
+  font:
+    600 10px "JetBrains Mono",
+    monospace;
   text-transform: uppercase;
 }
 
@@ -756,7 +788,9 @@ button.mode-tab.active strong {
 .run-status {
   padding: 6px 12px;
   border: 1px solid;
-  font: 600 11px "JetBrains Mono", monospace;
+  font:
+    600 11px "JetBrains Mono",
+    monospace;
   text-transform: uppercase;
 }
 
@@ -791,7 +825,9 @@ button.mode-tab.active strong {
   padding: 11px 13px;
   border-right: 1px solid var(--border);
   color: var(--text-muted);
-  font: 500 10px "JetBrains Mono", monospace;
+  font:
+    500 10px "JetBrains Mono",
+    monospace;
   text-transform: uppercase;
 }
 
@@ -883,10 +919,18 @@ button.mode-tab.active strong {
   stroke-width: 0.8;
 }
 
-.market-line { stroke: var(--accent); }
-.model-line { stroke: var(--green); }
-.market-dot { fill: var(--accent); }
-.model-dot { fill: var(--green); }
+.market-line {
+  stroke: var(--accent);
+}
+.model-line {
+  stroke: var(--green);
+}
+.market-dot {
+  fill: var(--accent);
+}
+.model-dot {
+  fill: var(--green);
+}
 
 .fit-row {
   display: grid;
@@ -908,7 +952,9 @@ button.mode-tab.active strong {
 
 .fit-row strong {
   color: var(--green);
-  font: 600 11px "JetBrains Mono", monospace;
+  font:
+    600 11px "JetBrains Mono",
+    monospace;
   text-align: right;
 }
 
@@ -964,7 +1010,9 @@ button.mode-tab.active strong {
   padding: 0;
   text-align: center;
   color: #fff;
-  font: 500 8px "JetBrains Mono", monospace;
+  font:
+    500 8px "JetBrains Mono",
+    monospace;
 }
 
 .matrix-unavailable {
@@ -1010,7 +1058,9 @@ button.mode-tab.active strong {
 .fx-strip strong {
   margin-top: 5px;
   color: var(--accent);
-  font: 600 12px "JetBrains Mono", monospace;
+  font:
+    600 12px "JetBrains Mono",
+    monospace;
 }
 
 .compact-row {
@@ -1055,7 +1105,9 @@ button.mode-tab.active strong {
 }
 
 @media (max-width: 640px) {
-  .main { padding: 16px; }
+  .main {
+    padding: 16px;
+  }
   .mode-tabs,
   .lifecycle,
   .result-cards {
@@ -1644,6 +1696,9 @@ pre.debug {
   align-items: center;
   flex-wrap: wrap;
   row-gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .curve-builder-step {

@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
-import ValuationPanel from "../../src/components/ValuationPanel";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ValuationConfig, type ValuationResult } from "../../src/api/client";
+import ValuationPanel from "../../src/components/ValuationPanel";
 
 function makeResult(overrides: Partial<ValuationResult> = {}): ValuationResult {
   return {
@@ -22,7 +22,13 @@ function makeResult(overrides: Partial<ValuationResult> = {}): ValuationResult {
     total_pv: 8_000_000,
     total_greeks: { d_spot: 500_000, d_vol: 200_000 },
     trades: [
-      { trade_id: "t1", trade_name: "Trade One", pv: 8, scaled_pv: 8_000_000, greeks: { d_spot: 500_000 } },
+      {
+        trade_id: "t1",
+        trade_name: "Trade One",
+        pv: 8,
+        scaled_pv: 8_000_000,
+        greeks: { d_spot: 500_000 },
+      },
     ],
     created_at: "2026-07-19T00:00:00Z",
     status: "completed",
@@ -36,7 +42,9 @@ function runButton(): HTMLButtonElement {
 
 // fmtMoney renders via toLocaleString(undefined, ...); derive the expected
 // text instead of hard-coding en-US separators.
-const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(8_000_000);
+const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(
+  8_000_000,
+);
 
 describe("ValuationPanel", () => {
   let getValuationSpy: ReturnType<typeof vi.spyOn>;
@@ -50,7 +58,9 @@ describe("ValuationPanel", () => {
   });
 
   it("submits the configured valuation request and renders an immediately-completed result", async () => {
-    const onRun = vi.fn<(config: ValuationConfig) => Promise<ValuationResult>>().mockResolvedValue(makeResult());
+    const onRun = vi
+      .fn<(config: ValuationConfig) => Promise<ValuationResult>>()
+      .mockResolvedValue(makeResult());
     render(<ValuationPanel onRun={onRun} />);
 
     fireEvent.change(screen.getByLabelText("Number of paths"), { target: { value: "2048" } });
@@ -78,7 +88,9 @@ describe("ValuationPanel", () => {
   });
 
   it("clamps the path count to the allowed maximum", async () => {
-    const onRun = vi.fn<(config: ValuationConfig) => Promise<ValuationResult>>().mockResolvedValue(makeResult());
+    const onRun = vi
+      .fn<(config: ValuationConfig) => Promise<ValuationResult>>()
+      .mockResolvedValue(makeResult());
     render(<ValuationPanel onRun={onRun} />);
 
     const input = screen.getByLabelText("Number of paths") as HTMLInputElement;
@@ -111,7 +123,10 @@ describe("ValuationPanel", () => {
 
     fireEvent.click(runButton());
 
-    expect(await screen.findByRole("button", { name: "pricing…" })).toHaveProperty("disabled", true);
+    expect(await screen.findByRole("button", { name: "pricing…" })).toHaveProperty(
+      "disabled",
+      true,
+    );
 
     await screen.findByText("Total PV", undefined, { timeout: 3000 });
     expect(getValuationSpy).toHaveBeenCalledTimes(2);

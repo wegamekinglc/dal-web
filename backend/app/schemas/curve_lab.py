@@ -496,27 +496,57 @@ class CurveDraftDocumentInputV2(CurveLabWireModel):
     def _validate_topology(self) -> CurveDraftDocumentInputV2:
         declarations = self.declarations
         included = tuple(item for item in self.instruments if item.included)
+        self._validate_populated(declarations, included)
+        keys = tuple(item.component_key for item in declarations)
+        self._validate_unique_component_keys(keys)
+        self._validate_mode_roles(declarations)
+        self._validate_component_assignments(declarations, included, keys)
+        return self
+
+    def _validate_populated(
+        self,
+        declarations: tuple[CurveDeclarationInputV2, ...],
+        included: tuple[InstrumentDefinitionInputV2, ...],
+    ) -> None:
         if not declarations or not included:
             raise PydanticCustomError(
                 "draft_topology_invalid",
                 "Curve draft requires declarations and included instruments.",
                 {"field": "document"},
             )
-        keys = tuple(item.component_key for item in declarations)
+
+    def _validate_unique_component_keys(self, keys: tuple[str, ...]) -> None:
         if len(set(keys)) != len(keys):
             raise PydanticCustomError(
                 "draft_topology_invalid",
                 "Curve declaration component keys must be unique.",
                 {"field": "declarations"},
             )
+
+    def _validate_mode_roles(self, declarations: tuple[CurveDeclarationInputV2, ...]) -> None:
+        if self.mode == "SINGLE":
+            self._validate_single_mode_roles(declarations)
+        elif self.mode == "MULTI_CURVE":
+            self._validate_multi_curve_mode_roles(declarations)
+        elif self.mode in {"STAGED_XCCY", "JOINT_XCCY"}:
+            self._validate_xccy_mode_roles(declarations)
+
+    def _validate_single_mode_roles(
+        self, declarations: tuple[CurveDeclarationInputV2, ...]
+    ) -> None:
         roles = tuple(item.role for item in declarations)
-        if self.mode == "SINGLE" and (len(declarations) != 1 or roles != ("DISCOUNT",)):
+        if len(declarations) != 1 or roles != ("DISCOUNT",):
             raise PydanticCustomError(
                 "draft_topology_invalid",
                 "SINGLE mode requires exactly one discount declaration.",
                 {"field": "mode"},
             )
-        if self.mode == "MULTI_CURVE" and (
+
+    def _validate_multi_curve_mode_roles(
+        self, declarations: tuple[CurveDeclarationInputV2, ...]
+    ) -> None:
+        roles = tuple(item.role for item in declarations)
+        if (
             len(declarations) < 2
             or "DISCOUNT" not in roles
             or "BASIS" in roles
@@ -527,12 +557,22 @@ class CurveDraftDocumentInputV2(CurveLabWireModel):
                 "MULTI_CURVE requires one-currency discount/projection declarations.",
                 {"field": "declarations"},
             )
-        if self.mode in {"STAGED_XCCY", "JOINT_XCCY"} and roles.count("BASIS") != 1:
+
+    def _validate_xccy_mode_roles(self, declarations: tuple[CurveDeclarationInputV2, ...]) -> None:
+        roles = tuple(item.role for item in declarations)
+        if roles.count("BASIS") != 1:
             raise PydanticCustomError(
                 "draft_topology_invalid",
                 "XCCY modes require exactly one basis declaration.",
                 {"field": "declarations"},
             )
+
+    def _validate_component_assignments(
+        self,
+        declarations: tuple[CurveDeclarationInputV2, ...],
+        included: tuple[InstrumentDefinitionInputV2, ...],
+        keys: tuple[str, ...],
+    ) -> None:
         assigned = {
             (item.terms.component_key or declarations[0].component_key) for item in included
         }
@@ -550,7 +590,6 @@ class CurveDraftDocumentInputV2(CurveLabWireModel):
                 "Every declaration must own at least one included instrument.",
                 {"field": "declarations"},
             )
-        return self
 
 
 class CurveDraftDocumentV2(CurveLabWireModel):

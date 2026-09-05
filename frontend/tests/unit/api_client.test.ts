@@ -27,7 +27,9 @@ describe("api client", () => {
   });
 
   it("issues GET requests without a JSON content-type", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ status: "ok", backend: "b", is_native: true, evaluation_date: "d" }));
+    fetchMock.mockResolvedValue(
+      jsonResponse({ status: "ok", backend: "b", is_native: true, evaluation_date: "d" }),
+    );
 
     await api.health();
 
@@ -73,16 +75,18 @@ describe("api client", () => {
   });
 
   it("sends quote authoring lexemes as strings to the stateless adapter", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({
-      instrument_type: "IRS",
-      quote_coordinate_kind: "RATE",
-      canonical_raw_unit: "DECIMAL",
-      raw_quote: "0.04",
-      normalized_quote: "0.04",
-      normalized_unit: "DECIMAL_RATE",
-      exact_risk_raw_bump: "0.0001",
-      normalized_risk_bump: "0.0001",
-    }));
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        instrument_type: "IRS",
+        quote_coordinate_kind: "RATE",
+        canonical_raw_unit: "DECIMAL",
+        raw_quote: "0.04",
+        normalized_quote: "0.04",
+        normalized_unit: "DECIMAL_RATE",
+        exact_risk_raw_bump: "0.0001",
+        normalized_risk_bump: "0.0001",
+      }),
+    );
 
     await api.canonicalizeCurveLabQuote({
       instrument_type: "IRS",
@@ -103,12 +107,14 @@ describe("api client", () => {
   it("requests exact quote rendering with presentation-only string input", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ rendered_quote: "4.000000" }));
 
-    await expect(api.renderCurveLabQuote({
-      instrument_type: "IRS",
-      canonical_raw_quote: "0.04",
-      display_convention: "PERCENT",
-      display_scale: 6,
-    })).resolves.toEqual({ rendered_quote: "4.000000" });
+    await expect(
+      api.renderCurveLabQuote({
+        instrument_type: "IRS",
+        canonical_raw_quote: "0.04",
+        display_convention: "PERCENT",
+        display_scale: 6,
+      }),
+    ).resolves.toEqual({ rendered_quote: "4.000000" });
 
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(String(url)).toBe(`${ORIGIN}/api/curve-lab/quote-renderings`);
@@ -141,11 +147,15 @@ describe("api client", () => {
       jsonResponse({ detail: [{ loc: ["body", "num_paths"], msg: "too big" }] }, { status: 422 }),
     );
 
-    await expect(api.getValuation("x")).rejects.toThrow('422: [{"loc":["body","num_paths"],"msg":"too big"}]');
+    await expect(api.getValuation("x")).rejects.toThrow(
+      '422: [{"loc":["body","num_paths"],"msg":"too big"}]',
+    );
   });
 
   it("falls back to statusText when the error body is not JSON", async () => {
-    fetchMock.mockResolvedValue(new Response("gateway exploded", { status: 502, statusText: "Bad Gateway" }));
+    fetchMock.mockResolvedValue(
+      new Response("gateway exploded", { status: 502, statusText: "Bad Gateway" }),
+    );
 
     await expect(api.listModels()).rejects.toThrow("502: Bad Gateway");
   });

@@ -12,11 +12,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     void Promise.allSettled([
-      api.listPortfolios().then((p) => { setPortfolios(p); }),
-      api.listTrades().then((t) => { setTrades(t); }),
-      api.listValuations().then((v) => { setValuations(v); }),
+      api.listPortfolios().then((p) => {
+        setPortfolios(p);
+      }),
+      api.listTrades().then((t) => {
+        setTrades(t);
+      }),
+      api.listValuations().then((v) => {
+        setValuations(v);
+      }),
     ]).then((results) => {
-      const rejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const rejected = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
       if (rejected) {
         setError(String(rejected.reason));
       }
@@ -30,10 +36,7 @@ export default function Dashboard() {
       lastByTarget.set(v.target_id, v);
     }
   }
-  const totalPv = portfolios.reduce(
-    (acc, pf) => acc + (lastByTarget.get(pf.id)?.total_pv ?? 0),
-    0
-  );
+  const totalPv = portfolios.reduce((acc, pf) => acc + (lastByTarget.get(pf.id)?.total_pv ?? 0), 0);
 
   return (
     <div>
@@ -56,9 +59,7 @@ export default function Dashboard() {
         </div>
         <div {...css("card")}>
           <h3>Latest Portfolio PV</h3>
-          <div {...css(`metric ${totalPv >= 0 ? "pos" : "neg"}`)}>
-            {fmtMoney(totalPv)}
-          </div>
+          <div {...css(`metric ${totalPv >= 0 ? "pos" : "neg"}`)}>{fmtMoney(totalPv)}</div>
         </div>
         <div {...css("card")}>
           <h3>Valuation Runs</h3>
@@ -75,34 +76,34 @@ export default function Dashboard() {
         ) : (
           <div {...css("table-container")}>
             <table>
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Target</th>
-                <th>Backend</th>
-                <th {...css("num")}>PV</th>
-                <th {...css("num")}># trades</th>
-              </tr>
-            </thead>
-            <tbody>
-              {valuations.slice(0, 8).map((v) => (
-                <tr key={v.id}>
-                  <td {...css("mono")}>{new Date(v.created_at).toLocaleString()}</td>
-                  <td>
-                    {v.target_kind}
-                    {v.status === "running" && <span {...css("muted")}> (running)</span>}
-                    {v.status === "failed" && <span {...css("error-inline")}> (failed)</span>}
-                  </td>
-                  <td>
-                    {v.backend}
-                    {v.is_native ? "" : " (stub)"}
-                  </td>
-                  <td {...css("num")}>{fmtMoney(v.total_pv)}</td>
-                  <td {...css("num")}>{v.trades.length}</td>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Target</th>
+                  <th>Backend</th>
+                  <th {...css("num")}>PV</th>
+                  <th {...css("num")}># trades</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {valuations.slice(0, 8).map((v) => (
+                  <tr key={v.id}>
+                    <td {...css("mono")}>{new Date(v.created_at).toLocaleString()}</td>
+                    <td>
+                      {v.target_kind}
+                      {v.status === "running" && <span {...css("muted")}> (running)</span>}
+                      {v.status === "failed" && <span {...css("error-inline")}> (failed)</span>}
+                    </td>
+                    <td>
+                      {v.backend}
+                      {v.is_native ? "" : " (stub)"}
+                    </td>
+                    <td {...css("num")}>{fmtMoney(v.total_pv)}</td>
+                    <td {...css("num")}>{v.trades.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

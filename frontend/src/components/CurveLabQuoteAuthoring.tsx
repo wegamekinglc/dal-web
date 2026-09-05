@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   type CurveLabCanonicalQuote,
@@ -9,10 +9,7 @@ import {
   type QuoteDisplayConvention,
   type QuoteInputConvention,
 } from "../api/client";
-import {
-  CURVE_LAB_FAMILY_REGISTRY,
-  curveLabFamily,
-} from "../curves/curveLabRegistry";
+import { CURVE_LAB_FAMILY_REGISTRY, curveLabFamily } from "../curves/curveLabRegistry";
 import { curveLabErrorMessage } from "../curves/curveLabUtils";
 import { css } from "../format";
 
@@ -47,8 +44,7 @@ export default function CurveLabQuoteAuthoring({
 }: CurveLabQuoteAuthoringProps) {
   const [family, setFamily] = useState<CurveLabSuccessFamily>("DEPOSIT");
   const [convention, setConvention] = useState<QuoteInputConvention>("DECIMAL");
-  const [displayConvention, setDisplayConvention] =
-    useState<QuoteDisplayConvention>("DECIMAL");
+  const [displayConvention, setDisplayConvention] = useState<QuoteDisplayConvention>("DECIMAL");
   const [displayScale, setDisplayScale] = useState(4);
   const [lexeme, setLexeme] = useState("0.04");
   const [canonical, setCanonical] = useState<CurveLabCanonicalQuote | null>(null);
@@ -60,9 +56,7 @@ export default function CurveLabQuoteAuthoring({
   const renderRequestGenerationRef = useRef(0);
   const activeFamily = targetInstrumentFamily ?? family;
   const projection = curveLabFamily(activeFamily);
-  const activeInputConvention = projection.inputConventions.some(
-    (item) => item === convention,
-  )
+  const activeInputConvention = projection.inputConventions.some((item) => item === convention)
     ? convention
     : projection.inputConventions[0];
   const activeDisplayConvention = projection.inputConventions.some(
@@ -78,12 +72,20 @@ export default function CurveLabQuoteAuthoring({
     family: activeFamily,
     targetToken,
   };
-  const invalidateCanonicalRequest = () => {
+  const invalidateCanonicalRequest = useCallback(() => {
     canonicalRequestGenerationRef.current += 1;
     setSubmitting(false);
     setCanonical(null);
     setError(null);
-  };
+  }, []);
+
+  const lastTargetTokenRef = useRef(targetToken);
+  useEffect(() => {
+    if (lastTargetTokenRef.current === targetToken) return;
+    lastTargetTokenRef.current = targetToken;
+    if (targetInstrumentFamily === undefined) return;
+    invalidateCanonicalRequest();
+  }, [targetToken, targetInstrumentFamily, invalidateCanonicalRequest]);
 
   useEffect(() => {
     if (targetInstrumentFamily === undefined) return;
@@ -93,7 +95,7 @@ export default function CurveLabQuoteAuthoring({
     setFamily(targetInstrumentFamily);
     setConvention(targetProjection.inputConventions[0]);
     setDisplayConvention(targetProjection.inputConventions[0]);
-  }, [family, targetInstrumentFamily, targetToken]);
+  }, [family, targetInstrumentFamily, invalidateCanonicalRequest]);
 
   useEffect(() => {
     const generation = renderRequestGenerationRef.current + 1;
@@ -106,37 +108,33 @@ export default function CurveLabQuoteAuthoring({
       canonical_raw_quote: canonical.raw_quote,
       display_convention: activeDisplayConvention,
       display_scale: displayScale,
-    }).then((result) => {
-      if (generation === renderRequestGenerationRef.current) {
-        setRenderedQuote(result.rendered_quote);
-      }
-    }).catch((reason: unknown) => {
-      if (generation === renderRequestGenerationRef.current) {
-        setRenderingError(curveLabErrorMessage(reason));
-      }
-    });
+    })
+      .then((result) => {
+        if (generation === renderRequestGenerationRef.current) {
+          setRenderedQuote(result.rendered_quote);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (generation === renderRequestGenerationRef.current) {
+          setRenderingError(curveLabErrorMessage(reason));
+        }
+      });
     return () => {
       if (generation === renderRequestGenerationRef.current) {
         renderRequestGenerationRef.current += 1;
       }
     };
-  }, [
-    activeDisplayConvention,
-    canonical,
-    displayScale,
-    renderQuote,
-  ]);
+  }, [activeDisplayConvention, canonical, displayScale, renderQuote]);
 
   const submit = async () => {
     const generation = canonicalRequestGenerationRef.current + 1;
     canonicalRequestGenerationRef.current = generation;
     const requestFamily = activeFamily;
     const requestTargetToken = targetToken;
-    const requestIsCurrent = () => (
-      generation === canonicalRequestGenerationRef.current
-      && requestFamily === canonicalRequestContextRef.current.family
-      && requestTargetToken === canonicalRequestContextRef.current.targetToken
-    );
+    const requestIsCurrent = () =>
+      generation === canonicalRequestGenerationRef.current &&
+      requestFamily === canonicalRequestContextRef.current.family &&
+      requestTargetToken === canonicalRequestContextRef.current.targetToken;
     setSubmitting(true);
     setError(null);
     try {
@@ -146,9 +144,10 @@ export default function CurveLabQuoteAuthoring({
         input_convention: activeInputConvention,
       });
       if (!requestIsCurrent()) return;
-      const applied = requestTargetToken === undefined
-        ? onCanonicalQuote?.(result)
-        : onCanonicalQuote?.(result, requestTargetToken);
+      const applied =
+        requestTargetToken === undefined
+          ? onCanonicalQuote?.(result)
+          : onCanonicalQuote?.(result, requestTargetToken);
       if (applied === false) return;
       setCanonical(result);
     } catch (reason) {
@@ -203,7 +202,9 @@ export default function CurveLabQuoteAuthoring({
             }}
           >
             {projection.inputConventions.map((item) => (
-              <option key={item} value={item}>{item.replace("_", " ")}</option>
+              <option key={item} value={item}>
+                {item.replace("_", " ")}
+              </option>
             ))}
           </select>
         </label>
@@ -236,7 +237,9 @@ export default function CurveLabQuoteAuthoring({
             }}
           >
             {projection.inputConventions.map((item) => (
-              <option key={item} value={item}>{item.replace("_", " ")}</option>
+              <option key={item} value={item}>
+                {item.replace("_", " ")}
+              </option>
             ))}
           </select>
         </label>

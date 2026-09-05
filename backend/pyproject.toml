@@ -10,7 +10,7 @@ readme = "README.md"
 # dal-python wheels are cp313-only today; cap so uv never resolves cp314.
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "dal-python>=2026.8.14",
+    "dal-python>=2026.9.5",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "pydantic>=2.6",

@@ -44,9 +44,7 @@ describe("CurveRun running state", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      await screen.findByRole("heading", { name: "Native solve in progress" }),
-    ).not.toBeNull();
+    expect(await screen.findByRole("heading", { name: "Native solve in progress" })).not.toBeNull();
     expect(screen.getByText(/Polling persisted phase:/)).not.toBeNull();
     expect(document.querySelector(".spinner")?.getAttribute("aria-hidden")).toBe("true");
   });

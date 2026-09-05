@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Portfolio, type Trade } from "../api/client";
 import PageHeader from "../components/PageHeader";
-import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
+import { css, fmtMoney, inlineStyle } from "../format";
 
 export default function Portfolios() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -16,13 +16,23 @@ export default function Portfolios() {
 
   const refresh = useCallback(() => {
     return Promise.all([
-      api.listPortfolios().then((p) => { setPortfolios(p); }),
-      api.listTrades().then((t) => { setAllTrades(t); }),
+      api.listPortfolios().then((p) => {
+        setPortfolios(p);
+      }),
+      api.listTrades().then((t) => {
+        setAllTrades(t);
+      }),
     ]);
   }, []);
 
   useEffect(() => {
-    void refresh().catch((e: unknown) => { setError(String(e)); }).finally(() => { setLoading(false); });
+    void refresh()
+      .catch((e: unknown) => {
+        setError(String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [refresh]);
 
   async function selectPortfolio(pf: Portfolio) {
@@ -95,141 +105,141 @@ export default function Portfolios() {
           <p {...css("muted")}>Loading portfolios…</p>
         </div>
       ) : (
-      <div {...css("grid-2")}>
-        <div {...css("panel")}>
-          <h3 {...css("panel-title")}>Books</h3>
-          <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
-            <input
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                void create();
-              }}
-              {...inlineStyle({ flex: "0 0 auto" })}
-            >
-              Create
-            </button>
-          </div>
-          <div {...css("table-container")}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th {...css("num")}># trades</th>
-                  <th></th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {portfolios.map((pf) => (
-                  <tr key={pf.id}>
-                    <td>{pf.name}</td>
-                    <td {...css("muted")}>{pf.description}</td>
-                    <td {...css("num")}>{pf.trade_ids.length}</td>
-                    <td>
-                      <button
-                        type="button"
-                        {...css("ghost")}
-                        onClick={() => {
-                          void selectPortfolio(pf);
-                        }}
-                      >
-                        Open
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        {...css("danger")}
-                        onClick={() => {
-                          void deletePortfolio(pf.id);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
+        <div {...css("grid-2")}>
+          <div {...css("panel")}>
+            <h3 {...css("panel-title")}>Books</h3>
+            <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
+              <input
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  void create();
+                }}
+                {...inlineStyle({ flex: "0 0 auto" })}
+              >
+                Create
+              </button>
+            </div>
+            <div {...css("table-container")}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th {...css("num")}># trades</th>
+                    <th></th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {portfolios.map((pf) => (
+                    <tr key={pf.id}>
+                      <td>{pf.name}</td>
+                      <td {...css("muted")}>{pf.description}</td>
+                      <td {...css("num")}>{pf.trade_ids.length}</td>
+                      <td>
+                        <button
+                          type="button"
+                          {...css("ghost")}
+                          onClick={() => {
+                            void selectPortfolio(pf);
+                          }}
+                        >
+                          Open
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          {...css("danger")}
+                          onClick={() => {
+                            void deletePortfolio(pf.id);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div {...css("panel")}>
+            <h2>{selected ? selected.name : "Select a portfolio"}</h2>
+            {selected && (
+              <>
+                <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
+                  <select
+                    value={addTradeId}
+                    onChange={(e) => {
+                      setAddTradeId(e.target.value);
+                    }}
+                  >
+                    <option value="">— pick a trade —</option>
+                    {allTrades
+                      .filter((t) => !selected.trade_ids.includes(t.id))
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void addTrade();
+                    }}
+                    {...inlineStyle({ flex: "0 0 auto" })}
+                    disabled={!addTradeId}
+                  >
+                    Add trade
+                  </button>
+                </div>
+                <div {...css("table-container")}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Trade</th>
+                        <th>Book</th>
+                        <th {...css("num")}>Notional</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((t) => (
+                        <tr key={t.id}>
+                          <td>{t.name}</td>
+                          <td>{t.book}</td>
+                          <td {...css("num")}>{fmtMoney(t.notional)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              {...css("danger")}
+                              onClick={() => {
+                                if (window.confirm(`Remove ${t.name} from this portfolio?`)) {
+                                  void removeTrade(t.id);
+                                }
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
-
-        <div {...css("panel")}>
-          <h2>{selected ? selected.name : "Select a portfolio"}</h2>
-          {selected && (
-            <>
-              <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
-                <select
-                  value={addTradeId}
-                  onChange={(e) => {
-                    setAddTradeId(e.target.value);
-                  }}
-                >
-                  <option value="">— pick a trade —</option>
-                  {allTrades
-                    .filter((t) => !selected.trade_ids.includes(t.id))
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void addTrade();
-                  }}
-                  {...inlineStyle({ flex: "0 0 auto" })}
-                  disabled={!addTradeId}
-                >
-                  Add trade
-                </button>
-              </div>
-              <div {...css("table-container")}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Trade</th>
-                      <th>Book</th>
-                      <th {...css("num")}>Notional</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {members.map((t) => (
-                      <tr key={t.id}>
-                        <td>{t.name}</td>
-                        <td>{t.book}</td>
-                        <td {...css("num")}>{fmtMoney(t.notional)}</td>
-                        <td>
-                          <button
-                            type="button"
-                            {...css("danger")}
-                            onClick={() => {
-                              if (window.confirm(`Remove ${t.name} from this portfolio?`)) {
-                                void removeTrade(t.id);
-                              }
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
       )}
 
       {selected && (

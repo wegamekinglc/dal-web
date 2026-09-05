@@ -21,16 +21,25 @@ export default function Models() {
   const [dupireRepo, setDupireRepo] = useState(0.0);
   const [dupireSpotsText, setDupireSpotsText] = useState("90, 100, 110");
   const [dupireTimesText, setDupireTimesText] = useState("0.25, 0.5, 1.0");
-  const [dupireVolsText, setDupireVolsText] = useState("0.22, 0.20, 0.19\n0.21, 0.20, 0.20\n0.19, 0.20, 0.22");
+  const [dupireVolsText, setDupireVolsText] = useState(
+    "0.22, 0.20, 0.19\n0.21, 0.20, 0.20\n0.19, 0.20, 0.22",
+  );
 
   const refresh = useCallback(() => {
-    return api.listModels().then((m) => { setModels(m); }).catch((e: unknown) => {
-      setError(String(e));
-    });
+    return api
+      .listModels()
+      .then((m) => {
+        setModels(m);
+      })
+      .catch((e: unknown) => {
+        setError(String(e));
+      });
   }, []);
 
   useEffect(() => {
-    void refresh().finally(() => { setLoading(false); });
+    void refresh().finally(() => {
+      setLoading(false);
+    });
   }, [refresh]);
 
   function parseNumberList(text: string): number[] {
@@ -104,230 +113,237 @@ export default function Models() {
           <p {...css("muted")}>Loading models…</p>
         </div>
       ) : (
-      <>
-      <div {...css("panel")}>
-        <h3 {...css("panel-title")}>New model</h3>
-        <div {...css("field")}>
-          <label htmlFor="model-name">Name</label>
-          <input
-            id="model-name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-            }}
-          />
-        </div>
-        <div {...css("field")}>
-          <label>
-            Model kind
-            <select
-              id="model-kind"
-              value={kind}
-              onChange={(e) => {
-                setKind(e.target.value as ModelKind);
-              }}
-              {...inlineStyle({ maxWidth: 320 })}
-            >
-              <option value="BSModelData_">Black-Scholes</option>
-              <option value="DupireModelData_">Dupire (local vol surface)</option>
-            </select>
-          </label>
-        </div>
-
-        {kind === "BSModelData_" ? (
-          <div {...css("row")}>
-            <div>
-              <label htmlFor="model-spot">Spot</label>
+        <>
+          <div {...css("panel")}>
+            <h3 {...css("panel-title")}>New model</h3>
+            <div {...css("field")}>
+              <label htmlFor="model-name">Name</label>
               <input
-                id="model-spot"
-                type="number"
-                value={spot}
+                id="model-name"
+                value={name}
                 onChange={(e) => {
-                  setSpot(Number(e.target.value));
+                  setName(e.target.value);
                 }}
               />
-            </div>
-            <div>
-              <label htmlFor="model-vol">Vol</label>
-              <input
-                id="model-vol"
-                type="number"
-                step="0.01"
-                value={vol}
-                onChange={(e) => {
-                  setVol(Number(e.target.value));
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="model-rate">Rate</label>
-              <input
-                id="model-rate"
-                type="number"
-                step="0.01"
-                value={rate}
-                onChange={(e) => {
-                  setRate(Number(e.target.value));
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="model-dividend">Dividend</label>
-              <input
-                id="model-dividend"
-                type="number"
-                step="0.01"
-                value={div}
-                onChange={(e) => {
-                  setDiv(Number(e.target.value));
-                }}
-              />
-            </div>
-          </div>
-        ) : (
-          <div>
-            <p {...css("muted")} {...inlineStyle({ marginTop: 0, marginBottom: 12 })}>
-              Dupire uses a local volatility surface σ(S, t). Enter spot strikes
-              (one row), times (one row), and a vols matrix (one row per strike,
-              one column per time).
-            </p>
-            <div {...css("row")}>
-              <div>
-                <label>
-                  Spot
-                  <input
-                    id="dupire-spot"
-                    type="number"
-                    value={dupireSpot}
-                    onChange={(e) => { setDupireSpot(Number(e.target.value)); }}
-                  />
-                </label>
-              </div>
-              <div>
-                <label>
-                  Rate
-                  <input
-                    id="dupire-rate"
-                    type="number"
-                    step="0.01"
-                    value={dupireRate}
-                    onChange={(e) => { setDupireRate(Number(e.target.value)); }}
-                  />
-                </label>
-              </div>
-              <div>
-                <label>
-                  Repo
-                  <input
-                    id="dupire-repo"
-                    type="number"
-                    step="0.01"
-                    value={dupireRepo}
-                    onChange={(e) => { setDupireRepo(Number(e.target.value)); }}
-                  />
-                </label>
-              </div>
             </div>
             <div {...css("field")}>
               <label>
-                Spot strikes (comma-separated)
-                <input
-                  id="dupire-spots"
-                  value={dupireSpotsText}
-                  onChange={(e) => { setDupireSpotsText(e.target.value); }}
-                />
+                Model kind
+                <select
+                  id="model-kind"
+                  value={kind}
+                  onChange={(e) => {
+                    setKind(e.target.value as ModelKind);
+                  }}
+                  {...inlineStyle({ maxWidth: 320 })}
+                >
+                  <option value="BSModelData_">Black-Scholes</option>
+                  <option value="DupireModelData_">Dupire (local vol surface)</option>
+                </select>
               </label>
             </div>
-            <div {...css("field")}>
-              <label>
-                Times in years (comma-separated)
-                <input
-                  id="dupire-times"
-                  value={dupireTimesText}
-                  onChange={(e) => { setDupireTimesText(e.target.value); }}
-                />
-              </label>
-            </div>
-            <div {...css("field")}>
-              <label>
-                Vols matrix (one row per strike, whitespace-separated)
-                <textarea
-                  id="dupire-vols"
-                  value={dupireVolsText}
-                  onChange={(e) => { setDupireVolsText(e.target.value); }}
-                  rows={4}
-                />
-              </label>
-            </div>
-          </div>
-        )}
 
-        <div {...inlineStyle({ marginTop: 12 })}>
-          <button
-            type="button"
-            onClick={() => {
-              void create();
-            }}
-          >
-            Create model
-          </button>
-        </div>
-      </div>
-
-      <div {...css("panel")}>
-        <h3 {...css("panel-title")}>Registered models</h3>
-        <div {...css("table-container")}>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Kind</th>
-              <th {...css("num")}>Spot</th>
-              <th {...css("num")}>Vol</th>
-              <th {...css("num")}>Rate</th>
-              <th {...css("num")}>Div/Repo</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {models.map((m) => (
-              <tr key={m.id}>
-                <td>{m.name}</td>
-                <td {...css("mono")}>{m.kind}</td>
-                <td {...css("num")}>
-                  {m.bs ? fmtNum(m.bs.spot, 2) : m.dupire ? fmtNum(m.dupire.spot, 2) : "-"}
-                </td>
-                <td {...css("num")}>
-                  {m.bs
-                    ? fmtNum(m.bs.vol, 4)
-                    : m.dupire
-                    ? "(surface)"
-                    : "-"}
-                </td>
-                <td {...css("num")}>
-                  {m.bs ? fmtNum(m.bs.rate, 4) : m.dupire ? fmtNum(m.dupire.rate, 4) : "-"}
-                </td>
-                <td {...css("num")}>
-                  {m.bs ? fmtNum(m.bs.div, 4) : m.dupire ? fmtNum(m.dupire.repo, 4) : "-"}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    {...css("danger")}
-                    onClick={() => {
-                      void remove(m.id);
+            {kind === "BSModelData_" ? (
+              <div {...css("row")}>
+                <div>
+                  <label htmlFor="model-spot">Spot</label>
+                  <input
+                    id="model-spot"
+                    type="number"
+                    value={spot}
+                    onChange={(e) => {
+                      setSpot(Number(e.target.value));
                     }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
-      </>
+                  />
+                </div>
+                <div>
+                  <label htmlFor="model-vol">Vol</label>
+                  <input
+                    id="model-vol"
+                    type="number"
+                    step="0.01"
+                    value={vol}
+                    onChange={(e) => {
+                      setVol(Number(e.target.value));
+                    }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="model-rate">Rate</label>
+                  <input
+                    id="model-rate"
+                    type="number"
+                    step="0.01"
+                    value={rate}
+                    onChange={(e) => {
+                      setRate(Number(e.target.value));
+                    }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="model-dividend">Dividend</label>
+                  <input
+                    id="model-dividend"
+                    type="number"
+                    step="0.01"
+                    value={div}
+                    onChange={(e) => {
+                      setDiv(Number(e.target.value));
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p {...css("muted")} {...inlineStyle({ marginTop: 0, marginBottom: 12 })}>
+                  Dupire uses a local volatility surface σ(S, t). Enter spot strikes (one row),
+                  times (one row), and a vols matrix (one row per strike, one column per time).
+                </p>
+                <div {...css("row")}>
+                  <div>
+                    <label>
+                      Spot
+                      <input
+                        id="dupire-spot"
+                        type="number"
+                        value={dupireSpot}
+                        onChange={(e) => {
+                          setDupireSpot(Number(e.target.value));
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label>
+                      Rate
+                      <input
+                        id="dupire-rate"
+                        type="number"
+                        step="0.01"
+                        value={dupireRate}
+                        onChange={(e) => {
+                          setDupireRate(Number(e.target.value));
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label>
+                      Repo
+                      <input
+                        id="dupire-repo"
+                        type="number"
+                        step="0.01"
+                        value={dupireRepo}
+                        onChange={(e) => {
+                          setDupireRepo(Number(e.target.value));
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div {...css("field")}>
+                  <label>
+                    Spot strikes (comma-separated)
+                    <input
+                      id="dupire-spots"
+                      value={dupireSpotsText}
+                      onChange={(e) => {
+                        setDupireSpotsText(e.target.value);
+                      }}
+                    />
+                  </label>
+                </div>
+                <div {...css("field")}>
+                  <label>
+                    Times in years (comma-separated)
+                    <input
+                      id="dupire-times"
+                      value={dupireTimesText}
+                      onChange={(e) => {
+                        setDupireTimesText(e.target.value);
+                      }}
+                    />
+                  </label>
+                </div>
+                <div {...css("field")}>
+                  <label>
+                    Vols matrix (one row per strike, whitespace-separated)
+                    <textarea
+                      id="dupire-vols"
+                      value={dupireVolsText}
+                      onChange={(e) => {
+                        setDupireVolsText(e.target.value);
+                      }}
+                      rows={4}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div {...inlineStyle({ marginTop: 12 })}>
+              <button
+                type="button"
+                onClick={() => {
+                  void create();
+                }}
+              >
+                Create model
+              </button>
+            </div>
+          </div>
+
+          <div {...css("panel")}>
+            <h3 {...css("panel-title")}>Registered models</h3>
+            <div {...css("table-container")}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Kind</th>
+                    <th {...css("num")}>Spot</th>
+                    <th {...css("num")}>Vol</th>
+                    <th {...css("num")}>Rate</th>
+                    <th {...css("num")}>Div/Repo</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {models.map((m) => (
+                    <tr key={m.id}>
+                      <td>{m.name}</td>
+                      <td {...css("mono")}>{m.kind}</td>
+                      <td {...css("num")}>
+                        {m.bs ? fmtNum(m.bs.spot, 2) : m.dupire ? fmtNum(m.dupire.spot, 2) : "-"}
+                      </td>
+                      <td {...css("num")}>
+                        {m.bs ? fmtNum(m.bs.vol, 4) : m.dupire ? "(surface)" : "-"}
+                      </td>
+                      <td {...css("num")}>
+                        {m.bs ? fmtNum(m.bs.rate, 4) : m.dupire ? fmtNum(m.dupire.rate, 4) : "-"}
+                      </td>
+                      <td {...css("num")}>
+                        {m.bs ? fmtNum(m.bs.div, 4) : m.dupire ? fmtNum(m.dupire.repo, 4) : "-"}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          {...css("danger")}
+                          onClick={() => {
+                            void remove(m.id);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  api,
-  type ModelDefinition,
-  type ProductDefinition,
-  type Trade,
-} from "../api/client";
+import { api, type ModelDefinition, type ProductDefinition, type Trade } from "../api/client";
 import PageHeader from "../components/PageHeader";
-import { css, fmtMoney, inlineStyle } from "../format";
 import ValuationPanel from "../components/ValuationPanel";
+import { css, fmtMoney, inlineStyle } from "../format";
 
 export default function Trades() {
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -26,7 +21,9 @@ export default function Trades() {
   const [modelId, setModelId] = useState("");
 
   const refresh = useCallback(() => {
-    return api.listTrades().then((t) => { setTrades(t); });
+    return api.listTrades().then((t) => {
+      setTrades(t);
+    });
   }, []);
 
   useEffect(() => {
@@ -45,7 +42,7 @@ export default function Trades() {
         }
       }),
     ]).then((results) => {
-      const rejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const rejected = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
       if (rejected) {
         setError(String(rejected.reason));
       }
@@ -112,167 +109,167 @@ export default function Trades() {
           <p {...css("muted")}>Loading trades…</p>
         </div>
       ) : (
-      <>
-      <div {...css("panel")}>
-        <h3 {...css("panel-title")}>New trade</h3>
-        <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
-          <div>
-            <label htmlFor="trade-name">Name</label>
-            <input
-              id="trade-name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-              }}
-            />
+        <>
+          <div {...css("panel")}>
+            <h3 {...css("panel-title")}>New trade</h3>
+            <div {...css("row")} {...inlineStyle({ marginBottom: 12 })}>
+              <div>
+                <label htmlFor="trade-name">Name</label>
+                <input
+                  id="trade-name"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="trade-book">Book</label>
+                <input
+                  id="trade-book"
+                  value={book}
+                  onChange={(e) => {
+                    setBook(e.target.value);
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="trade-counterparty">Counterparty</label>
+                <input
+                  id="trade-counterparty"
+                  value={counterparty}
+                  onChange={(e) => {
+                    setCounterparty(e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+            <div {...css("row")}>
+              <div>
+                <label htmlFor="trade-product">Product</label>
+                <select
+                  id="trade-product"
+                  value={productId}
+                  onChange={(e) => {
+                    setProductId(e.target.value);
+                  }}
+                >
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="trade-model">Model</label>
+                <select
+                  id="trade-model"
+                  value={modelId}
+                  onChange={(e) => {
+                    setModelId(e.target.value);
+                  }}
+                >
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="trade-notional">Notional</label>
+                <input
+                  id="trade-notional"
+                  type="number"
+                  value={notional}
+                  onChange={(e) => {
+                    setNotional(Number(e.target.value));
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="trade-quantity">Quantity</label>
+                <input
+                  id="trade-quantity"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => {
+                    setQuantity(Number(e.target.value));
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void create();
+                }}
+                disabled={!productId || !modelId}
+              >
+                Create
+              </button>
+            </div>
           </div>
-          <div>
-            <label htmlFor="trade-book">Book</label>
-            <input
-              id="trade-book"
-              value={book}
-              onChange={(e) => {
-                setBook(e.target.value);
-              }}
-            />
-          </div>
-          <div>
-            <label htmlFor="trade-counterparty">Counterparty</label>
-            <input
-              id="trade-counterparty"
-              value={counterparty}
-              onChange={(e) => {
-                setCounterparty(e.target.value);
-              }}
-            />
-          </div>
-        </div>
-        <div {...css("row")}>
-          <div>
-            <label htmlFor="trade-product">Product</label>
-            <select
-              id="trade-product"
-              value={productId}
-              onChange={(e) => {
-                setProductId(e.target.value);
-              }}
-            >
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="trade-model">Model</label>
-            <select
-              id="trade-model"
-              value={modelId}
-              onChange={(e) => {
-                setModelId(e.target.value);
-              }}
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="trade-notional">Notional</label>
-            <input
-              id="trade-notional"
-              type="number"
-              value={notional}
-              onChange={(e) => {
-                setNotional(Number(e.target.value));
-              }}
-            />
-          </div>
-          <div>
-            <label htmlFor="trade-quantity">Quantity</label>
-            <input
-              id="trade-quantity"
-              type="number"
-              value={quantity}
-              onChange={(e) => {
-                setQuantity(Number(e.target.value));
-              }}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              void create();
-            }}
-            disabled={!productId || !modelId}
-          >
-            Create
-          </button>
-        </div>
-      </div>
 
-      <div {...css("panel")}>
-        <h3 {...css("panel-title")}>All trades</h3>
-        <div {...css("table-container")}>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Book</th>
-              <th>Product</th>
-              <th>Model</th>
-              <th {...css("num")}>Notional</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {trades.map((t) => (
-              <tr key={t.id}>
-                <td>{t.name}</td>
-                <td>{t.book}</td>
-                <td>{nameById(products, t.product_id)}</td>
-                <td>{nameById(models, t.model_id)}</td>
-                <td {...css("num")}>{fmtMoney(t.notional)}</td>
-                <td>
-                  <button
-                    type="button"
-                    {...css("ghost")}
-                    onClick={() => {
-                      setSelected(t.id);
-                    }}
-                  >
-                    Price
-                  </button>{" "}
-                  <button
-                    type="button"
-                    {...css("danger")}
-                    onClick={() => {
-                      void remove(t.id);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
+          <div {...css("panel")}>
+            <h3 {...css("panel-title")}>All trades</h3>
+            <div {...css("table-container")}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Book</th>
+                    <th>Product</th>
+                    <th>Model</th>
+                    <th {...css("num")}>Notional</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trades.map((t) => (
+                    <tr key={t.id}>
+                      <td>{t.name}</td>
+                      <td>{t.book}</td>
+                      <td>{nameById(products, t.product_id)}</td>
+                      <td>{nameById(models, t.model_id)}</td>
+                      <td {...css("num")}>{fmtMoney(t.notional)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          {...css("ghost")}
+                          onClick={() => {
+                            setSelected(t.id);
+                          }}
+                        >
+                          Price
+                        </button>{" "}
+                        <button
+                          type="button"
+                          {...css("danger")}
+                          onClick={() => {
+                            void remove(t.id);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      {selected && (
-        <div {...inlineStyle({ marginTop: 18 })}>
-          <ValuationPanel
-            key={selected}
-            title={`Price trade: ${nameById(trades, selected)}`}
-            onRun={(config) => api.valueTrade(selected, config)}
-          />
-        </div>
-      )}
-      </>
+          {selected && (
+            <div {...inlineStyle({ marginTop: 18 })}>
+              <ValuationPanel
+                key={selected}
+                title={`Price trade: ${nameById(trades, selected)}`}
+                onRun={(config) => api.valueTrade(selected, config)}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

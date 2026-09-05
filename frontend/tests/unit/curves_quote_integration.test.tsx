@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../src/api/client";
 import Curves from "../../src/pages/Curves";
 
@@ -26,11 +26,12 @@ function canonicalDeposit(rawQuote: string) {
 describe("Curve Lab production quote integration", () => {
   beforeEach(() => {
     vi.spyOn(api, "renderCurveLabQuote").mockImplementation(async (request) => ({
-      rendered_quote: request.canonical_raw_quote === "0.04"
-        && request.display_convention === "PERCENT"
-        && request.display_scale === 6
-        ? "4.000000"
-        : request.canonical_raw_quote,
+      rendered_quote:
+        request.canonical_raw_quote === "0.04" &&
+        request.display_convention === "PERCENT" &&
+        request.display_scale === 6
+          ? "4.000000"
+          : request.canonical_raw_quote,
     }));
   });
 
@@ -40,21 +41,17 @@ describe("Curve Lab production quote integration", () => {
 
   it("writes server canonical bytes into the selected workspace instrument", async () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    vi.spyOn(api, "canonicalizeCurveLabQuote").mockResolvedValue(
-      CANONICAL_DEPOSIT,
-    );
-    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({
-        id: "a".repeat(32),
-        schema_version: 2,
-        revision: 1,
-        fingerprint: "b".repeat(64),
-        state: "READY_TO_BUILD",
-        document: body as Record<string, unknown>,
-        created_at: "2026-01-15T00:00:00Z",
-        updated_at: "2026-01-15T00:00:00Z",
-      }),
-    );
+    vi.spyOn(api, "canonicalizeCurveLabQuote").mockResolvedValue(CANONICAL_DEPOSIT);
+    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      id: "a".repeat(32),
+      schema_version: 2,
+      revision: 1,
+      fingerprint: "b".repeat(64),
+      state: "READY_TO_BUILD",
+      document: body as Record<string, unknown>,
+      created_at: "2026-01-15T00:00:00Z",
+      updated_at: "2026-01-15T00:00:00Z",
+    }));
 
     render(
       <MemoryRouter>
@@ -92,22 +89,21 @@ describe("Curve Lab production quote integration", () => {
       reject: (...args: [unknown]) => void;
     }[] = [];
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((resolve, reject) => {
-        pending.push({ resolve, reject });
-      }),
+      () =>
+        new Promise((resolve, reject) => {
+          pending.push({ resolve, reject });
+        }),
     );
-    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({
-        id: "a".repeat(32),
-        schema_version: 2,
-        revision: 1,
-        fingerprint: "b".repeat(64),
-        state: "READY_TO_BUILD",
-        document: body as Record<string, unknown>,
-        created_at: "2026-01-15T00:00:00Z",
-        updated_at: "2026-01-15T00:00:00Z",
-      }),
-    );
+    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      id: "a".repeat(32),
+      schema_version: 2,
+      revision: 1,
+      fingerprint: "b".repeat(64),
+      state: "READY_TO_BUILD",
+      document: body as Record<string, unknown>,
+      created_at: "2026-01-15T00:00:00Z",
+      updated_at: "2026-01-15T00:00:00Z",
+    }));
 
     render(
       <MemoryRouter>
@@ -156,9 +152,10 @@ describe("Curve Lab production quote integration", () => {
       reject: (...args: [unknown]) => void;
     }[] = [];
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((resolve, reject) => {
-        pending.push({ resolve, reject });
-      }),
+      () =>
+        new Promise((resolve, reject) => {
+          pending.push({ resolve, reject });
+        }),
     );
 
     render(
@@ -198,9 +195,10 @@ describe("Curve Lab production quote integration", () => {
       reject: (...args: [unknown]) => void;
     }[] = [];
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((resolve, reject) => {
-        pending.push({ resolve, reject });
-      }),
+      () =>
+        new Promise((resolve, reject) => {
+          pending.push({ resolve, reject });
+        }),
     );
 
     render(
@@ -239,9 +237,10 @@ describe("Curve Lab production quote integration", () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
     let rejectCanonicalization: ((reason: unknown) => void) | null = null;
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((_resolve, reject) => {
-        rejectCanonicalization = reject;
-      }),
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectCanonicalization = reject;
+        }),
     );
 
     render(
@@ -273,9 +272,10 @@ describe("Curve Lab production quote integration", () => {
       reject: (...args: [unknown]) => void;
     }[] = [];
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((resolve, reject) => {
-        pending.push({ resolve, reject });
-      }),
+      () =>
+        new Promise((resolve, reject) => {
+          pending.push({ resolve, reject });
+        }),
     );
 
     render(
@@ -310,8 +310,7 @@ describe("Curve Lab production quote integration", () => {
     );
 
     expect(
-      (screen.getByRole("button", { name: "Canonicalize quote" }) as HTMLButtonElement)
-        .disabled,
+      (screen.getByRole("button", { name: "Canonicalize quote" }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
       screen.getByText("Select one workspace instrument before applying a canonical quote."),
@@ -341,21 +340,19 @@ describe("Curve Lab production quote integration", () => {
 
   it("repeated application is idempotent and changes only the selected row", async () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    const canonicalize = vi.spyOn(api, "canonicalizeCurveLabQuote").mockResolvedValue(
-      CANONICAL_DEPOSIT,
-    );
-    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({
-        id: "a".repeat(32),
-        schema_version: 2,
-        revision: 1,
-        fingerprint: "b".repeat(64),
-        state: "READY_TO_BUILD",
-        document: body as Record<string, unknown>,
-        created_at: "2026-01-15T00:00:00Z",
-        updated_at: "2026-01-15T00:00:00Z",
-      }),
-    );
+    const canonicalize = vi
+      .spyOn(api, "canonicalizeCurveLabQuote")
+      .mockResolvedValue(CANONICAL_DEPOSIT);
+    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      id: "a".repeat(32),
+      schema_version: 2,
+      revision: 1,
+      fingerprint: "b".repeat(64),
+      state: "READY_TO_BUILD",
+      document: body as Record<string, unknown>,
+      created_at: "2026-01-15T00:00:00Z",
+      updated_at: "2026-01-15T00:00:00Z",
+    }));
 
     render(
       <MemoryRouter>
@@ -383,19 +380,17 @@ describe("Curve Lab production quote integration", () => {
     const body = create.mock.calls[0][0] as {
       instruments: { raw_quote: string }[];
     };
-    expect(body.instruments.map((instrument) => instrument.raw_quote)).toEqual([
-      "0.031",
-      "0.04",
-    ]);
+    expect(body.instruments.map((instrument) => instrument.raw_quote)).toEqual(["0.031", "0.04"]);
   });
 
   it("ignores a delayed response after the selected instrument family changes", async () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
     let resolveCanonicalization: ((value: typeof CANONICAL_DEPOSIT) => void) | null = null;
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((resolve) => {
-        resolveCanonicalization = resolve;
-      }),
+      () =>
+        new Promise((resolve) => {
+          resolveCanonicalization = resolve;
+        }),
     );
 
     render(
@@ -414,9 +409,7 @@ describe("Curve Lab production quote integration", () => {
     });
 
     expect((screen.getByLabelText("Quote 1") as HTMLInputElement).value).toBe("95.8225");
-    expect((screen.getByLabelText("Instrument family") as HTMLSelectElement).value).toBe(
-      "FUTURE",
-    );
+    expect((screen.getByLabelText("Instrument family") as HTMLSelectElement).value).toBe("FUTURE");
     expect(
       screen.queryByText(
         "Canonical quote target changed; select the matching workspace instrument and retry.",
@@ -433,9 +426,10 @@ describe("Curve Lab production quote integration", () => {
     };
     let resolveCanonicalization: ((value: typeof delayed) => void) | null = null;
     vi.spyOn(api, "canonicalizeCurveLabQuote").mockImplementation(
-      () => new Promise((resolve) => {
-        resolveCanonicalization = resolve;
-      }),
+      () =>
+        new Promise((resolve) => {
+          resolveCanonicalization = resolve;
+        }),
     );
 
     render(
@@ -469,21 +463,17 @@ describe("Curve Lab production quote integration", () => {
 
   it("does not mutate workspace financial bytes when display preference changes", async () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    vi.spyOn(api, "canonicalizeCurveLabQuote").mockResolvedValue(
-      CANONICAL_DEPOSIT,
-    );
-    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({
-        id: "a".repeat(32),
-        schema_version: 2,
-        revision: 1,
-        fingerprint: "b".repeat(64),
-        state: "READY_TO_BUILD",
-        document: body as Record<string, unknown>,
-        created_at: "2026-01-15T00:00:00Z",
-        updated_at: "2026-01-15T00:00:00Z",
-      }),
-    );
+    vi.spyOn(api, "canonicalizeCurveLabQuote").mockResolvedValue(CANONICAL_DEPOSIT);
+    const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      id: "a".repeat(32),
+      schema_version: 2,
+      revision: 1,
+      fingerprint: "b".repeat(64),
+      state: "READY_TO_BUILD",
+      document: body as Record<string, unknown>,
+      created_at: "2026-01-15T00:00:00Z",
+      updated_at: "2026-01-15T00:00:00Z",
+    }));
     const update = vi.spyOn(api, "updateCurveLabDraft");
 
     render(

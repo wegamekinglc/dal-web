@@ -2024,95 +2024,26 @@ class DalGateway:
         """Adapt normalized Curve Lab trades to the native pricing kernel."""
 
         with self._calibration_lock:
-            if curve_version is None:
-                dependency_curves = self._curve_lab_dependency_curves(dependencies)
-                curves = self._curve_lab_passive_curves(
-                    document,
-                    parameter_bumps,
-                    dependency_curves=dependency_curves,
-                    fixing_observations=fixing_observations or (),
-                )
-            else:
-                payload = curve_version.get("native_payload")
-                expected_hash = curve_version.get("native_payload_hash")
-                if not isinstance(payload, bytes) or not isinstance(expected_hash, str):
-                    raise ValueError("selected Curve Lab version archive is unavailable")
-                selected_curves = self._curve_lab_archive_curves(
-                    payload,
-                    str(curve_version["root_kind"]),
-                    document,
-                    expected_hash,
-                )
-                curves = self._curve_lab_dependency_curves(dependencies)
-                duplicate = curves.keys() & selected_curves.keys()
-                if duplicate:
-                    raise ValueError(
-                        f"selected version duplicates dependency component {sorted(duplicate)[0]!r}"
-                    )
-                curves.update(selected_curves)
-                if parameter_bumps:
-                    curves = self._curve_lab_bumped_curves(
-                        curves,
-                        list(document["declarations"]),
-                        parameter_bumps,
-                    )
+            curves = self._curve_lab_pricing_curves(
+                document,
+                curve_version,
+                dependencies,
+                parameter_bumps,
+                fixing_observations,
+            )
             default_key = next(iter(curves))
             valuation = canonical_utc_datetime(evaluation_time)
             native_time = self._native_datetime(valuation)
             fixing_snapshot = self._dal.MarketFixingSnapshot_New(
                 self._curve_lab_fixing_values(fixing_observations or ())
             )
-            xccy_trade = next(
-                (trade for trade in trades if trade["instrument_type"] == "XCCY"),
-                None,
+            native_xccy_market = self._curve_lab_xccy_market(
+                trades,
+                document,
+                curves,
+                native_time,
+                fixing_snapshot,
             )
-            native_xccy_market = None
-            if xccy_trade is not None:
-                pair_token = str(xccy_trade["currency_or_pair"]).replace("/", "-")
-                domestic, foreign = pair_token.split("-", 1)
-
-                def curve_block(currency: str) -> Any:
-                    discounts: dict[Any, Any] = {}
-                    forwards: dict[Any, Any] = {}
-                    for declaration in document["declarations"]:
-                        if str(declaration["currency"]) != currency:
-                            continue
-                        key = str(declaration["component_key"])
-                        if declaration["role"] == "DISCOUNT":
-                            collateral = key.rsplit("/", 1)[-1]
-                            discounts[self._dal.CollateralType_(collateral)] = curves[key]
-                        elif declaration["role"] == "PROJECTION":
-                            tenor = key.rsplit("/", 1)[-1]
-                            forwards[self._dal.PeriodLength_New(tenor)] = curves[key]
-                    if not discounts:
-                        raise ValueError(
-                            f"XCCY pricing is missing a discount declaration for {currency}"
-                        )
-                    return self._dal.CurveBlock_New(
-                        f"curve-lab-{currency}",
-                        currency,
-                        discounts,
-                        forwards,
-                        self._dal.DayBasis_New("ACT_365F"),
-                    )
-
-                basis_curve = next(
-                    (
-                        curves[str(declaration["component_key"])]
-                        for declaration in document["declarations"]
-                        if declaration["role"] == "BASIS"
-                    ),
-                    None,
-                )
-                native_xccy_market = self._dal.CrossCurrencyMarket_New(
-                    domestic_block=curve_block(domestic),
-                    foreign_block=curve_block(foreign),
-                    fx_spot=float(xccy_trade["terms"]["fx_spot"]),
-                    valuation_time=native_time,
-                    collateral_currency=domestic,
-                    fixings=fixing_snapshot,
-                    basis_curve=basis_curve,
-                )
             native_market = self._dal.RatePricingMarket_(
                 valuation_time=native_time,
                 result_currency=base_currency,
@@ -2135,57 +2066,13 @@ class DalGateway:
             )
             if check_deadline is not None:
                 check_deadline()
-            aad_rows: list[dict[str, Any] | None] = [None] * len(native_trades)
-            if include_node_sensitivities and hasattr(
-                self._dal,
-                "RateTradeNodeSensitivities",
-            ):
-                axes_by_component: dict[str, list[Mapping[str, Any]]] = {}
-                for axis in parameter_axis:
-                    axes_by_component.setdefault(
-                        str(axis["component_key"]),
-                        [],
-                    ).append(axis)
-                for native_position, native_trade in enumerate(native_trades):
-                    gradient_by_id: dict[str, str] = {}
-                    eligible = False
-                    reasons: list[str] = []
-                    for component_key, axes in axes_by_component.items():
-                        if check_deadline is not None:
-                            check_deadline()
-                        sensitivity = self._dal.RateTradeNodeSensitivities(
-                            trade=native_trade,
-                            market=native_market,
-                            component_key=component_key,
-                        )
-                        if check_deadline is not None:
-                            check_deadline()
-                        if bool(sensitivity.eligible):
-                            if len(sensitivity.gradient) != len(axes):
-                                raise ValueError(
-                                    "native AAD gradient does not match the persisted parameter axis"
-                                )
-                            eligible = True
-                            gradient_by_id.update(
-                                {
-                                    str(axis["parameter_id"]): str(value)
-                                    for axis, value in zip(
-                                        axes,
-                                        sensitivity.gradient,
-                                        strict=True,
-                                    )
-                                }
-                            )
-                        elif str(sensitivity.reason) != "TRADE_DOES_NOT_DEPEND_ON_COMPONENT":
-                            reasons.append(str(sensitivity.reason))
-                    aad_rows[native_position] = {
-                        "eligible": eligible,
-                        "gradient": [
-                            gradient_by_id.get(str(axis["parameter_id"]), "0")
-                            for axis in parameter_axis
-                        ],
-                        "reason": ",".join(reasons),
-                    }
+            aad_rows = self._curve_lab_aad_rows(
+                native_trades,
+                native_market,
+                parameter_axis,
+                include_node_sensitivities,
+                check_deadline,
+            )
             for native_position, (position, row) in enumerate(
                 zip(native_positions, priced, strict=True)
             ):
@@ -2235,6 +2122,166 @@ class DalGateway:
             fixing_observations=fixing_observations,
             check_deadline=check_deadline,
         )
+
+    def _curve_lab_pricing_curves(
+        self,
+        document: Mapping[str, Any],
+        curve_version: Mapping[str, Any] | None,
+        dependencies: Sequence[Mapping[str, Any]],
+        parameter_bumps: list[tuple[Mapping[str, Any], float]] | None,
+        fixing_observations: Sequence[Mapping[str, Any]] | None,
+    ) -> dict[str, Any]:
+        if curve_version is None:
+            dependency_curves = self._curve_lab_dependency_curves(dependencies)
+            return self._curve_lab_passive_curves(
+                document,
+                parameter_bumps,
+                dependency_curves=dependency_curves,
+                fixing_observations=fixing_observations or (),
+            )
+        payload = curve_version.get("native_payload")
+        expected_hash = curve_version.get("native_payload_hash")
+        if not isinstance(payload, bytes) or not isinstance(expected_hash, str):
+            raise ValueError("selected Curve Lab version archive is unavailable")
+        selected_curves = self._curve_lab_archive_curves(
+            payload,
+            str(curve_version["root_kind"]),
+            document,
+            expected_hash,
+        )
+        curves = self._curve_lab_dependency_curves(dependencies)
+        duplicate = curves.keys() & selected_curves.keys()
+        if duplicate:
+            raise ValueError(
+                f"selected version duplicates dependency component {sorted(duplicate)[0]!r}"
+            )
+        curves.update(selected_curves)
+        if parameter_bumps:
+            curves = self._curve_lab_bumped_curves(
+                curves,
+                list(document["declarations"]),
+                parameter_bumps,
+            )
+        return curves
+
+    def _curve_lab_xccy_market(
+        self,
+        trades: Sequence[Mapping[str, Any]],
+        document: Mapping[str, Any],
+        curves: Mapping[str, Any],
+        native_time: Any,
+        fixing_snapshot: Any,
+    ) -> Any:
+        xccy_trade = next(
+            (trade for trade in trades if trade["instrument_type"] == "XCCY"),
+            None,
+        )
+        if xccy_trade is None:
+            return None
+        pair_token = str(xccy_trade["currency_or_pair"]).replace("/", "-")
+        domestic, foreign = pair_token.split("-", 1)
+
+        def curve_block(currency: str) -> Any:
+            discounts: dict[Any, Any] = {}
+            forwards: dict[Any, Any] = {}
+            for declaration in document["declarations"]:
+                if str(declaration["currency"]) != currency:
+                    continue
+                key = str(declaration["component_key"])
+                if declaration["role"] == "DISCOUNT":
+                    collateral = key.rsplit("/", 1)[-1]
+                    discounts[self._dal.CollateralType_(collateral)] = curves[key]
+                elif declaration["role"] == "PROJECTION":
+                    tenor = key.rsplit("/", 1)[-1]
+                    forwards[self._dal.PeriodLength_New(tenor)] = curves[key]
+            if not discounts:
+                raise ValueError(f"XCCY pricing is missing a discount declaration for {currency}")
+            return self._dal.CurveBlock_New(
+                f"curve-lab-{currency}",
+                currency,
+                discounts,
+                forwards,
+                self._dal.DayBasis_New("ACT_365F"),
+            )
+
+        basis_curve = next(
+            (
+                curves[str(declaration["component_key"])]
+                for declaration in document["declarations"]
+                if declaration["role"] == "BASIS"
+            ),
+            None,
+        )
+        return self._dal.CrossCurrencyMarket_New(
+            domestic_block=curve_block(domestic),
+            foreign_block=curve_block(foreign),
+            fx_spot=float(xccy_trade["terms"]["fx_spot"]),
+            valuation_time=native_time,
+            collateral_currency=domestic,
+            fixings=fixing_snapshot,
+            basis_curve=basis_curve,
+        )
+
+    def _curve_lab_aad_rows(
+        self,
+        native_trades: Sequence[Any],
+        native_market: Any,
+        parameter_axis: Sequence[Mapping[str, Any]],
+        include_node_sensitivities: bool,
+        check_deadline: Callable[[], None] | None,
+    ) -> list[dict[str, Any] | None]:
+        aad_rows: list[dict[str, Any] | None] = [None] * len(native_trades)
+        if not include_node_sensitivities or not hasattr(
+            self._dal,
+            "RateTradeNodeSensitivities",
+        ):
+            return aad_rows
+        axes_by_component: dict[str, list[Mapping[str, Any]]] = {}
+        for axis in parameter_axis:
+            axes_by_component.setdefault(
+                str(axis["component_key"]),
+                [],
+            ).append(axis)
+        for native_position, native_trade in enumerate(native_trades):
+            gradient_by_id: dict[str, str] = {}
+            eligible = False
+            reasons: list[str] = []
+            for component_key, axes in axes_by_component.items():
+                if check_deadline is not None:
+                    check_deadline()
+                sensitivity = self._dal.RateTradeNodeSensitivities(
+                    trade=native_trade,
+                    market=native_market,
+                    component_key=component_key,
+                )
+                if check_deadline is not None:
+                    check_deadline()
+                if bool(sensitivity.eligible):
+                    if len(sensitivity.gradient) != len(axes):
+                        raise ValueError(
+                            "native AAD gradient does not match the persisted parameter axis"
+                        )
+                    eligible = True
+                    gradient_by_id.update(
+                        {
+                            str(axis["parameter_id"]): str(value)
+                            for axis, value in zip(
+                                axes,
+                                sensitivity.gradient,
+                                strict=True,
+                            )
+                        }
+                    )
+                elif str(sensitivity.reason) != "TRADE_DOES_NOT_DEPEND_ON_COMPONENT":
+                    reasons.append(str(sensitivity.reason))
+            aad_rows[native_position] = {
+                "eligible": eligible,
+                "gradient": [
+                    gradient_by_id.get(str(axis["parameter_id"]), "0") for axis in parameter_axis
+                ],
+                "reason": ",".join(reasons),
+            }
+        return aad_rows
 
     def _curve_lab_fixing_values(
         self,

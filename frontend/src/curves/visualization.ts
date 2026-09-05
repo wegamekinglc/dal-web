@@ -1,7 +1,4 @@
-import type {
-  CalibrationMatrix,
-  InstrumentDiagnostic,
-} from "../api/client";
+import type { CalibrationMatrix, InstrumentDiagnostic } from "../api/client";
 
 export interface FitSeriesRow {
   id: string;
@@ -30,8 +27,7 @@ export function alignFitSeries(
   return residualAxis.map((axis, index) => {
     const id = axis.startsWith("residual:") ? axis.slice(9) : "";
     const item =
-      byId.get(id) ??
-      diagnostics.find((candidate) => candidate.calibration_index === index);
+      byId.get(id) ?? diagnostics.find((candidate) => candidate.calibration_index === index);
     if (!item) {
       throw new Error(`Missing instrument diagnostic for ${axis}`);
     }
@@ -72,10 +68,7 @@ export function heatmapModel(matrix: CalibrationMatrix) {
     return {
       ...metadata,
       available: false,
-      reason:
-        matrix.availability === "available"
-          ? "invalid_matrix_values"
-          : matrix.availability,
+      reason: matrix.availability === "available" ? "invalid_matrix_values" : matrix.availability,
       values: null,
       gridRows: [],
     };
@@ -112,17 +105,12 @@ export interface LocatedField {
   field: string;
 }
 
-function stringValue(
-  value: string | number | undefined,
-  fallback: string,
-): string {
+function stringValue(value: string | number | undefined, fallback: string): string {
   if (value === undefined) return fallback;
   return String(value);
 }
 
-export function locateCalibrationField(
-  location: (string | number)[],
-): LocatedField {
+export function locateCalibrationField(location: (string | number)[]): LocatedField {
   const path = location[0] === "body" ? location.slice(1) : location;
   const reversedTail = [...path];
   const last = reversedTail.pop();

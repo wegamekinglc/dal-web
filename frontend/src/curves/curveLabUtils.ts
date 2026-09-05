@@ -15,9 +15,8 @@ function curveLabErrorDetailMessage(detail: unknown): string | undefined {
 }
 
 export function curveLabErrorMessage(reason: unknown): string {
-  const detailMessage = reason instanceof ApiClientError
-    ? curveLabErrorDetailMessage(reason.detail)
-    : undefined;
+  const detailMessage =
+    reason instanceof ApiClientError ? curveLabErrorDetailMessage(reason.detail) : undefined;
   if (detailMessage) return detailMessage;
   return reason instanceof Error ? reason.message : String(reason);
 }
@@ -25,9 +24,7 @@ export function curveLabErrorMessage(reason: unknown): string {
 export function omitCurveLabInstrumentId(
   instrument: Record<string, unknown>,
 ): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(instrument).filter(([key]) => key !== "instrument_id"),
-  );
+  return Object.fromEntries(Object.entries(instrument).filter(([key]) => key !== "instrument_id"));
 }
 
 function downloadBlob(payload: Blob, fileName: string): void {
@@ -55,10 +52,7 @@ export function downloadCurveLabArtifacts({
 }): void {
   const prefix = `${versionName.replace(/ /g, "-")}-${versionId.slice(0, 8)}`;
   downloadBlob(
-    new Blob(
-      [JSON.stringify(manifest, null, 2)],
-      { type: "application/json" },
-    ),
+    new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" }),
     `${prefix}.manifest.json`,
   );
   downloadBlob(payload, `${prefix}.json`);

@@ -19,13 +19,35 @@ export default function FitPlot({ rows }: { rows: FitSeriesRow[] }) {
       <div {...css("plot-grid")}>
         <svg viewBox="0 0 100 100" role="img" aria-labelledby="fit-title fit-desc">
           <title id="fit-title">Market and model calibration rates</title>
-          <desc id="fit-desc">Gold marks market rates; green marks model rates, aligned by residual axis.</desc>
-          <polyline points={rows.map((row, index) => point(row.market, index, low, high, rows.length)).join(" ")} {...css("market-line")} />
-          <polyline points={rows.map((row, index) => point(row.model, index, low, high, rows.length)).join(" ")} {...css("model-line")} />
+          <desc id="fit-desc">
+            Gold marks market rates; green marks model rates, aligned by residual axis.
+          </desc>
+          <polyline
+            points={rows
+              .map((row, index) => point(row.market, index, low, high, rows.length))
+              .join(" ")}
+            {...css("market-line")}
+          />
+          <polyline
+            points={rows
+              .map((row, index) => point(row.model, index, low, high, rows.length))
+              .join(" ")}
+            {...css("model-line")}
+          />
           {rows.map((row, index) => (
             <g key={row.id}>
-              <circle cx={scale(row.market, low, high)} cy={10 + index * (80 / Math.max(1, rows.length - 1))} r="1.8" {...css("market-dot")} />
-              <circle cx={scale(row.model, low, high)} cy={10 + index * (80 / Math.max(1, rows.length - 1))} r="1.8" {...css("model-dot")} />
+              <circle
+                cx={scale(row.market, low, high)}
+                cy={10 + index * (80 / Math.max(1, rows.length - 1))}
+                r="1.8"
+                {...css("market-dot")}
+              />
+              <circle
+                cx={scale(row.model, low, high)}
+                cy={10 + index * (80 / Math.max(1, rows.length - 1))}
+                r="1.8"
+                {...css("model-dot")}
+              />
             </g>
           ))}
         </svg>

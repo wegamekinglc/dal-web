@@ -31,11 +31,9 @@ async function dodgeValuationSpecWindow(page: import("@playwright/test").Page) {
     }[];
   };
   await expect
-    .poll(
-      async () =>
-        (await listRuns()).find((r) => r.config.num_paths === 1024)?.status,
-      { timeout: 60_000 }
-    )
+    .poll(async () => (await listRuns()).find((r) => r.config.num_paths === 1024)?.status, {
+      timeout: 60_000,
+    })
     .toBe("completed");
   await page.waitForTimeout(5_000);
 }
@@ -83,12 +81,10 @@ async function seedTrade(page: import("@playwright/test").Page) {
   expect(tradeResp.status()).toBe(201);
 }
 
-test("portfolio lifecycle: create, add trade, price, remove trade, delete", async ({
-  page,
-}) => {
+test("portfolio lifecycle: create, add trade, price, remove trade, delete", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   await seedTrade(page);
@@ -111,7 +107,7 @@ test("portfolio lifecycle: create, add trade, price, remove trade, delete", asyn
   // Open it and add the seeded trade through the picker.
   await bookRow.getByRole("button", { name: "Open" }).click();
   await expect(
-    page.getByRole("heading", { name: "E2E Portfolio Alpha", exact: true })
+    page.getByRole("heading", { name: "E2E Portfolio Alpha", exact: true }),
   ).toBeVisible();
   await page
     .locator("select")
@@ -126,7 +122,7 @@ test("portfolio lifecycle: create, add trade, price, remove trade, delete", asyn
 
   // Price the portfolio through its ValuationPanel; canned PV is 8 x notional.
   await expect(
-    page.getByRole("heading", { name: "Price portfolio: E2E Portfolio Alpha" })
+    page.getByRole("heading", { name: "Price portfolio: E2E Portfolio Alpha" }),
   ).toBeVisible();
   await page.getByLabel("Number of paths").fill("2048");
   await dodgeValuationSpecWindow(page);
@@ -157,15 +153,9 @@ test("portfolio lifecycle: create, add trade, price, remove trade, delete", asyn
     .filter({ hasText: "E2E PF Trade" })
     .getByRole("button", { name: "Remove" })
     .click();
+  await expect(page.getByRole("row").filter({ hasText: "E2E PF Trade" })).toHaveCount(0);
   await expect(
-    page.getByRole("row").filter({ hasText: "E2E PF Trade" })
-  ).toHaveCount(0);
-  await expect(
-    page
-      .getByRole("row")
-      .filter({ hasText: "E2E Portfolio Alpha" })
-      .locator("td")
-      .nth(2)
+    page.getByRole("row").filter({ hasText: "E2E Portfolio Alpha" }).locator("td").nth(2),
   ).toHaveText("0");
 
   // Delete the portfolio (confirmation flow); the selector resets.
@@ -174,10 +164,6 @@ test("portfolio lifecycle: create, add trade, price, remove trade, delete", asyn
     .filter({ hasText: "E2E Portfolio Alpha" })
     .getByRole("button", { name: "Delete" })
     .click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Portfolio Alpha" })
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Select a portfolio" })
-  ).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "E2E Portfolio Alpha" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Select a portfolio" })).toBeVisible();
 });

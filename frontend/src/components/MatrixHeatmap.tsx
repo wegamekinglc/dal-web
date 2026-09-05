@@ -22,7 +22,9 @@ export default function MatrixHeatmap({
     <section {...css("panel", "matrix-panel")}>
       <div {...css("matrix-heading")}>
         <h3 {...css("panel-title")}>{title}</h3>
-        <span {...css("tag")}>{model.shapeLabel} · {matrix.scaling}</span>
+        <span {...css("tag")}>
+          {model.shapeLabel} · {matrix.scaling}
+        </span>
       </div>
       {!model.available ? (
         <div {...css("matrix-unavailable")}>
@@ -33,20 +35,23 @@ export default function MatrixHeatmap({
         </div>
       ) : (
         <div {...css("heatmap-scroll")}>
-          <table
-            {...css("heatmap")}
-            aria-label={`${title} ${model.shapeLabel}`}
-          >
+          <table {...css("heatmap")} aria-label={`${title} ${model.shapeLabel}`}>
             <thead>
               <tr>
                 <th />
-                {model.columns.map((column) => <th key={column} title={column}><code>{column}</code></th>)}
+                {model.columns.map((column) => (
+                  <th key={column} title={column}>
+                    <code>{column}</code>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {model.gridRows.map(({ row, cells }) => (
                 <tr key={row}>
-                  <th title={row}><code>{row}</code></th>
+                  <th title={row}>
+                    <code>{row}</code>
+                  </th>
                   {cells.map(({ column, value }) => (
                     <td
                       key={`${row}-${column}`}

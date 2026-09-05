@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { api, type Health } from "./api/client";
 import { css } from "./format";
-import Dashboard from "./pages/Dashboard";
-import Portfolios from "./pages/Portfolios";
-import Trades from "./pages/Trades";
-import ProductBuilder from "./pages/ProductBuilder";
-import Models from "./pages/Models";
-import Valuations from "./pages/Valuations";
-import Curves from "./pages/Curves";
 import CurveRun from "./pages/CurveRun";
+import Curves from "./pages/Curves";
+import Dashboard from "./pages/Dashboard";
+import Models from "./pages/Models";
+import Portfolios from "./pages/Portfolios";
+import ProductBuilder from "./pages/ProductBuilder";
+import Trades from "./pages/Trades";
+import Valuations from "./pages/Valuations";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard" },
@@ -25,24 +25,26 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
 
   useEffect(() => {
-    void api.health().then(setHealth).catch(() => {
-      setHealth(null);
-    });
+    void api
+      .health()
+      .then(setHealth)
+      .catch(() => {
+        setHealth(null);
+      });
   }, []);
 
   return (
     <div {...css("app")}>
       <header {...css("topbar")}>
-        <div {...css("brand")}>
-          DAL Workbench
-        </div>
+        <div {...css("brand")}>DAL Workbench</div>
         <nav {...css("nav")}>
           {NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               {...{
-                className: ({ isActive }: { isActive: boolean }) => css("nav-link", isActive && "active").className,
+                className: ({ isActive }: { isActive: boolean }) =>
+                  css("nav-link", isActive && "active").className,
               }}
             >
               {n.label}
@@ -62,9 +64,7 @@ export default function App() {
                   {health.is_native ? " (native)" : " (stub)"}
                 </span>
               </div>
-              <div {...css("mono")}>
-                eval: {health.evaluation_date}
-              </div>
+              <div {...css("mono")}>eval: {health.evaluation_date}</div>
             </>
           )}
         </div>

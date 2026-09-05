@@ -1,4 +1,4 @@
-import { expect, test, type Download, type Route } from "@playwright/test";
+import { type Download, expect, type Route, test } from "@playwright/test";
 
 test("canonical authoring drives identical persisted and replayed financial identity", async ({
   page,
@@ -18,13 +18,14 @@ test("canonical authoring drives identical persisted and replayed financial iden
     await page.getByLabel("Input convention").selectOption(convention);
     await page.getByLabel("Quote lexeme").fill(lexeme);
     const responsePromise = page.waitForResponse(
-      (response) => response.url().endsWith("/api/curve-lab/quote-canonicalizations")
-        && response.request().method() === "POST",
+      (response) =>
+        response.url().endsWith("/api/curve-lab/quote-canonicalizations") &&
+        response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Canonicalize quote" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
-    const canonical = await response.json() as {
+    const canonical = (await response.json()) as {
       instrument_type: string;
       raw_quote: string;
       normalized_quote: string;
@@ -39,13 +40,13 @@ test("canonical authoring drives identical persisted and replayed financial iden
 
   const createDraft = async () => {
     const responsePromise = page.waitForResponse(
-      (response) => response.url().endsWith("/api/curve-lab/drafts")
-        && response.request().method() === "POST",
+      (response) =>
+        response.url().endsWith("/api/curve-lab/drafts") && response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Create draft" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(201);
-    return await response.json() as {
+    return (await response.json()) as {
       id: string;
       revision: number;
       fingerprint: string;
@@ -57,20 +58,19 @@ test("canonical authoring drives identical persisted and replayed financial iden
 
   const buildPublishAndRisk = async () => {
     const buildResponsePromise = page.waitForResponse(
-      (response) => response.url().includes("/api/curve-lab/drafts/")
-        && response.url().endsWith("/build-runs")
-        && response.request().method() === "POST",
+      (response) =>
+        response.url().includes("/api/curve-lab/drafts/") &&
+        response.url().endsWith("/build-runs") &&
+        response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Build curve" }).click();
-    const admittedBuild = await (await buildResponsePromise).json() as { id: string };
+    const admittedBuild = (await (await buildResponsePromise).json()) as { id: string };
     await expect(
       page.getByText(`Build ${admittedBuild.id.slice(0, 8)} finished SUCCEEDED.`),
     ).toBeVisible({ timeout: 30_000 });
-    const buildResponse = await page.request.get(
-      `/api/curve-lab/build-runs/${admittedBuild.id}`,
-    );
+    const buildResponse = await page.request.get(`/api/curve-lab/build-runs/${admittedBuild.id}`);
     expect(buildResponse.status()).toBe(200);
-    const build = await buildResponse.json() as {
+    const build = (await buildResponse.json()) as {
       id: string;
       state: string;
       stale: boolean;
@@ -79,32 +79,32 @@ test("canonical authoring drives identical persisted and replayed financial iden
 
     await page.getByRole("tab", { name: "Build" }).click();
     const versionResponsePromise = page.waitForResponse(
-      (response) => response.url().endsWith("/api/curve-lab/versions")
-        && response.request().method() === "POST",
+      (response) =>
+        response.url().endsWith("/api/curve-lab/versions") &&
+        response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Publish version" }).click();
     const versionResponse = await versionResponsePromise;
     expect(versionResponse.status()).toBe(201);
-    const version = await versionResponse.json() as {
+    const version = (await versionResponse.json()) as {
       id: string;
       native_payload_hash: string;
     };
 
     await page.getByRole("tab", { name: "Pricing & Risk" }).click();
     const riskResponsePromise = page.waitForResponse(
-      (response) => response.url().endsWith("/api/curve-lab/risk-runs")
-        && response.request().method() === "POST",
+      (response) =>
+        response.url().endsWith("/api/curve-lab/risk-runs") &&
+        response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Run pricing & risk" }).click();
-    const admittedRisk = await (await riskResponsePromise).json() as { id: string };
+    const admittedRisk = (await (await riskResponsePromise).json()) as { id: string };
     await expect(
       page.getByText(new RegExp(`Risk run ${admittedRisk.id.slice(0, 8)} finished`)),
     ).toBeVisible({ timeout: 30_000 });
-    const riskResponse = await page.request.get(
-      `/api/curve-lab/risk-runs/${admittedRisk.id}`,
-    );
+    const riskResponse = await page.request.get(`/api/curve-lab/risk-runs/${admittedRisk.id}`);
     expect(riskResponse.status()).toBe(200);
-    const risk = await riskResponse.json() as {
+    const risk = (await riskResponse.json()) as {
       id: string;
       state: string;
       quote_axis: Record<string, unknown>[];
@@ -112,9 +112,7 @@ test("canonical authoring drives identical persisted and replayed financial iden
       error: Record<string, unknown> | null;
     };
     expect(risk.state, JSON.stringify(risk.error)).toBe("SUCCEEDED");
-    const replayResponse = await page.request.get(
-      `/api/curve-lab/risk-runs/${admittedRisk.id}`,
-    );
+    const replayResponse = await page.request.get(`/api/curve-lab/risk-runs/${admittedRisk.id}`);
     expect(await replayResponse.json()).toEqual(risk);
     const matrixResponse = await page.request.get(
       `/api/curve-lab/risk-runs/${admittedRisk.id}/matrices/key-rate-dv01`,
@@ -125,20 +123,22 @@ test("canonical authoring drives identical persisted and replayed financial iden
       build,
       version,
       risk,
-      keyRateMatrix: await matrixResponse.json() as Record<string, unknown>,
+      keyRateMatrix: (await matrixResponse.json()) as Record<string, unknown>,
     };
   };
 
   await canonicalize("PERCENT", "4");
   const decimalRender = page.waitForResponse(
-    (response) => response.url().endsWith("/api/curve-lab/quote-renderings")
-      && response.request().method() === "POST",
+    (response) =>
+      response.url().endsWith("/api/curve-lab/quote-renderings") &&
+      response.request().method() === "POST",
   );
   await page.getByLabel("Display scale").fill("6");
   expect((await decimalRender).status()).toBe(200);
   const percentRender = page.waitForResponse(
-    (response) => response.url().endsWith("/api/curve-lab/quote-renderings")
-      && response.request().method() === "POST",
+    (response) =>
+      response.url().endsWith("/api/curve-lab/quote-renderings") &&
+      response.request().method() === "POST",
   );
   await page.getByLabel("Display convention").selectOption("PERCENT");
   const rendered = await percentRender;
@@ -153,7 +153,7 @@ test("canonical authoring drives identical persisted and replayed financial iden
   const unchangedBuildResponse = await page.request.get(
     `/api/curve-lab/build-runs/${percentEvidence.build.id}`,
   );
-  const unchangedBuild = await unchangedBuildResponse.json() as {
+  const unchangedBuild = (await unchangedBuildResponse.json()) as {
     stale: boolean;
     draft_fingerprint: string;
   };
@@ -225,54 +225,42 @@ test("latest same-target canonicalization wins when browser responses finish out
   await expect(page.getByLabel("Quote 1")).toHaveValue("0.05");
 
   const draftResponse = page.waitForResponse(
-    (candidate) => candidate.url().endsWith("/api/curve-lab/drafts")
-      && candidate.request().method() === "POST",
+    (candidate) =>
+      candidate.url().endsWith("/api/curve-lab/drafts") && candidate.request().method() === "POST",
   );
   await page.getByRole("button", { name: "Create draft" }).click();
   const created = await draftResponse;
   expect(created.status()).toBe(201);
-  const draft = await created.json() as {
+  const draft = (await created.json()) as {
     document: { instruments: { raw_quote: string }[] };
   };
   expect(draft.document.instruments[0].raw_quote).toBe("0.05");
 });
 
-test("creates a legal draft for every family through the visual control", async ({
-  page,
-}) => {
+test("creates a legal draft for every family through the visual control", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
     "requires the guarded canned DAL FastAPI backend",
   );
 
   await page.goto("/curves");
-  for (const family of [
-    "DEPOSIT",
-    "FRA",
-    "FUTURE",
-    "OIS",
-    "IRS",
-    "BASIS_SWAP",
-    "XCCY",
-  ]) {
+  for (const family of ["DEPOSIT", "FRA", "FUTURE", "OIS", "IRS", "BASIS_SWAP", "XCCY"]) {
     await page.getByLabel("Family 1").selectOption(family);
     const responsePromise = page.waitForResponse(
-      (response) => response.url().endsWith("/api/curve-lab/drafts")
-        && response.request().method() === "POST",
+      (response) =>
+        response.url().endsWith("/api/curve-lab/drafts") && response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Create draft" }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(201);
-    const created = await response.json() as {
+    const created = (await response.json()) as {
       document: { instruments: { instrument_type: string }[] };
     };
     expect(created.document.instruments[0].instrument_type).toBe(family);
   }
 });
 
-test("persists stale rebuild and version file actions through the real API", async ({
-  page,
-}) => {
+test("persists stale rebuild and version file actions through the real API", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
     "requires the guarded canned DAL FastAPI backend",
@@ -311,11 +299,11 @@ test("persists stale rebuild and version file actions through the real API", asy
   const nativeDownload = downloads.find(
     (download) => !download.suggestedFilename().endsWith(".manifest.json"),
   );
-  const manifestDownload = downloads.find(
-    (download) => download.suggestedFilename().endsWith(".manifest.json"),
+  const manifestDownload = downloads.find((download) =>
+    download.suggestedFilename().endsWith(".manifest.json"),
   );
-  const exportedPath = await nativeDownload?.path() ?? null;
-  const manifestPath = await manifestDownload?.path() ?? null;
+  const exportedPath = (await nativeDownload?.path()) ?? null;
+  const manifestPath = (await manifestDownload?.path()) ?? null;
   expect(exportedPath).not.toBeNull();
   expect(manifestPath).not.toBeNull();
   await expect(page.getByText("Exported native JSON for USD OIS.")).toBeVisible();

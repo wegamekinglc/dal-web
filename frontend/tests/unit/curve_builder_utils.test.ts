@@ -4,8 +4,8 @@ import {
   formatTenor,
   instrumentDayCount,
   quoteSeries,
-  quoteToPercent,
   quotesAsOf,
+  quoteToPercent,
   stepperStates,
 } from "../../src/curves/curveBuilderUtils";
 
@@ -161,17 +161,20 @@ describe("stepperStates", () => {
       stepperStates({ ...base, buildState: "SUCCEEDED", fitState: "NATIVE_ARCHIVE_VALIDATED" })
         .validate,
     ).toBe("done");
-    expect(stepperStates({ ...base, buildState: "SUCCEEDED", fitState: "SOLVING" }).validate)
-      .toBe("todo");
+    expect(stepperStates({ ...base, buildState: "SUCCEEDED", fitState: "SOLVING" }).validate).toBe(
+      "todo",
+    );
   });
 });
 
 describe("quotesAsOf", () => {
   it("takes the latest observation and falls back to the as-of date", () => {
-    expect(quotesAsOf([
-      { observed_at: "2026-01-14T00:00:00Z" },
-      { observed_at: "2026-01-15T16:00:00Z" },
-    ], "2026-01-15")).toBe("2026-01-15T16:00:00Z");
+    expect(
+      quotesAsOf(
+        [{ observed_at: "2026-01-14T00:00:00Z" }, { observed_at: "2026-01-15T16:00:00Z" }],
+        "2026-01-15",
+      ),
+    ).toBe("2026-01-15T16:00:00Z");
     expect(quotesAsOf([{}], "2026-01-15")).toBe("2026-01-15");
   });
 });

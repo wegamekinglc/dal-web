@@ -1,7 +1,7 @@
-import { defineConfig, devices } from "@playwright/test";
-import { accessSync, constants as fsConstants, existsSync, readdirSync, statSync } from "node:fs";
+import { accessSync, existsSync, constants as fsConstants, readdirSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig, devices } from "@playwright/test";
 
 const frontendPort = process.env.DAL_PLAYWRIGHT_FRONTEND_PORT ?? "5173";
 const BASE_URL = `http://localhost:${frontendPort}`;
@@ -31,9 +31,7 @@ function findChromeLibDir(): string | null {
     : [];
   // Prefer the first discovered multiarch dir; x86_64-linux-gnu is the most
   // common and a reasonable fallback.
-  return candidates.length > 0
-    ? resolve(chromeLibBase, candidates[0])
-    : null;
+  return candidates.length > 0 ? resolve(chromeLibBase, candidates[0]) : null;
 }
 
 const chromeLibDir = findChromeLibDir();
@@ -45,22 +43,16 @@ function resolveChromeExecutable(): string {
   const override = process.env.PLAYWRIGHT_CHROME_PATH;
   if (override) {
     if (!existsSync(override)) {
-      throw new Error(
-        `PLAYWRIGHT_CHROME_PATH points to a non-existent file: ${override}`
-      );
+      throw new Error(`PLAYWRIGHT_CHROME_PATH points to a non-existent file: ${override}`);
     }
     const overrideStat = statSync(override);
     if (!overrideStat.isFile()) {
-      throw new Error(
-        `PLAYWRIGHT_CHROME_PATH is not a regular file: ${override}`
-      );
+      throw new Error(`PLAYWRIGHT_CHROME_PATH is not a regular file: ${override}`);
     }
     try {
       accessSync(override, fsConstants.X_OK);
     } catch {
-      throw new Error(
-        `PLAYWRIGHT_CHROME_PATH is not executable: ${override}`
-      );
+      throw new Error(`PLAYWRIGHT_CHROME_PATH is not executable: ${override}`);
     }
     return override;
   }
@@ -76,7 +68,7 @@ function resolveChromeExecutable(): string {
   const executable = candidates.at(-1);
   if (!executable) {
     throw new Error(
-      `No Chrome binary found under ${chromeDir}. Run ./scripts/setup-playwright.sh first.`
+      `No Chrome binary found under ${chromeDir}. Run ./scripts/setup-playwright.sh first.`,
     );
   }
 

@@ -20,9 +20,7 @@ function yScale(value: number, low: number, high: number): number {
 
 function xScale(index: number, count: number): number {
   const inner = CHART.width - CHART.padLeft - CHART.padRight;
-  return count <= 1
-    ? CHART.padLeft + inner / 2
-    : CHART.padLeft + (index / (count - 1)) * inner;
+  return count <= 1 ? CHART.padLeft + inner / 2 : CHART.padLeft + (index / (count - 1)) * inner;
 }
 
 export default function CurvePreview({
@@ -36,9 +34,7 @@ export default function CurvePreview({
   const hasNormalized = points.some((point) => point.normalizedPercent !== null);
   const values = points.flatMap((point) => [
     point.percent,
-    ...(view === "normalized" && point.normalizedPercent !== null
-      ? [point.normalizedPercent]
-      : []),
+    ...(view === "normalized" && point.normalizedPercent !== null ? [point.normalizedPercent] : []),
   ]);
   const low = values.length > 0 ? Math.min(...values) - 0.25 : 0;
   const high = values.length > 0 ? Math.max(...values) + 0.25 : 1;
@@ -64,7 +60,11 @@ export default function CurvePreview({
           role="tab"
           aria-selected={view === "normalized"}
           disabled={!hasNormalized}
-          title={hasNormalized ? "Normalized quotes from the succeeded build" : "Available after a succeeded build"}
+          title={
+            hasNormalized
+              ? "Normalized quotes from the succeeded build"
+              : "Available after a succeeded build"
+          }
           {...css(view === "normalized" && "active")}
           onClick={() => {
             setView("normalized");
@@ -74,7 +74,9 @@ export default function CurvePreview({
         </button>
       </div>
       {points.length === 0 ? (
-        <p {...css("muted")}>No plottable rate quotes yet — add included deposit, futures or swap instruments.</p>
+        <p {...css("muted")}>
+          No plottable rate quotes yet — add included deposit, futures or swap instruments.
+        </p>
       ) : (
         <svg
           viewBox={`0 0 ${CHART.width} ${CHART.height}`}
@@ -94,7 +96,12 @@ export default function CurvePreview({
                   y2={y}
                   {...css("curve-builder-chart-grid")}
                 />
-                <text x={CHART.padLeft - 6} y={y + 3} textAnchor="end" {...css("curve-builder-chart-tick")}>
+                <text
+                  x={CHART.padLeft - 6}
+                  y={y + 3}
+                  textAnchor="end"
+                  {...css("curve-builder-chart-tick")}
+                >
                   {value.toFixed(2)}
                 </text>
               </g>
@@ -112,9 +119,12 @@ export default function CurvePreview({
             </text>
           ))}
           <polyline
-            points={points.map((point, index) => (
-              `${xScale(index, points.length)},${yScale(point.percent, low, high)}`
-            )).join(" ")}
+            points={points
+              .map(
+                (point, index) =>
+                  `${xScale(index, points.length)},${yScale(point.percent, low, high)}`,
+              )
+              .join(" ")}
             {...css("curve-builder-chart-line")}
           />
           {points.map((point, index) => (
@@ -128,19 +138,20 @@ export default function CurvePreview({
               <title>{`${point.tenor} · ${point.percent.toFixed(4)}%`}</title>
             </circle>
           ))}
-          {view === "normalized" && points.map((point, index) => (
-            point.normalizedPercent === null ? null : (
-              <circle
-                key={`normalized-${point.key}`}
-                cx={xScale(index, points.length)}
-                cy={yScale(point.normalizedPercent, low, high)}
-                r={2.5}
-                {...css("curve-builder-chart-dot-normalized")}
-              >
-                <title>{`${point.tenor} · normalized ${point.normalizedPercent.toFixed(4)}%`}</title>
-              </circle>
-            )
-          ))}
+          {view === "normalized" &&
+            points.map((point, index) =>
+              point.normalizedPercent === null ? null : (
+                <circle
+                  key={`normalized-${point.key}`}
+                  cx={xScale(index, points.length)}
+                  cy={yScale(point.normalizedPercent, low, high)}
+                  r={2.5}
+                  {...css("curve-builder-chart-dot-normalized")}
+                >
+                  <title>{`${point.tenor} · normalized ${point.normalizedPercent.toFixed(4)}%`}</title>
+                </circle>
+              ),
+            )}
         </svg>
       )}
       <div {...css("curve-builder-legend")}>
@@ -156,11 +167,15 @@ export default function CurvePreview({
         </div>
         <div {...css("curve-builder-stat")}>
           <h4>Fit</h4>
-          <div {...css("metric", fitState === "NATIVE_ARCHIVE_VALIDATED" && "pos")}>{fitState ?? "—"}</div>
+          <div {...css("metric", fitState === "NATIVE_ARCHIVE_VALIDATED" && "pos")}>
+            {fitState ?? "—"}
+          </div>
         </div>
         <div {...css("curve-builder-stat")}>
           <h4>Quotes</h4>
-          <div {...css("metric")}>{includedCount} / {totalCount}</div>
+          <div {...css("metric")}>
+            {includedCount} / {totalCount}
+          </div>
         </div>
       </div>
     </section>

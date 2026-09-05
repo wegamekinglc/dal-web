@@ -11,7 +11,7 @@ const TEMPLATES = [
 test("loads every builder template into the editor", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   await page.goto("/products");
@@ -20,16 +20,14 @@ test("loads every builder template into the editor", async ({ page }) => {
   for (const template of TEMPLATES) {
     await page.getByRole("button", { name: template.name }).click();
     await expect(page.locator("#product-name")).toHaveValue(template.name);
-    await expect(page.getByPlaceholder(/event script/)).toHaveCount(
-      template.rows
-    );
+    await expect(page.getByPlaceholder(/event script/)).toHaveCount(template.rows);
   }
 });
 
 test("debugs, saves and reloads a scripted product", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   await page.goto("/products");
@@ -43,9 +41,7 @@ test("debugs, saves and reloads a scripted product", async ({ page }) => {
   await expect(debug).toContainText("call pays MAX(spot() - STRIKE, 0.0)");
 
   await page.getByRole("button", { name: "Save product" }).click();
-  const savedRow = page
-    .getByRole("row")
-    .filter({ hasText: "E2E Builder Roundtrip" });
+  const savedRow = page.getByRole("row").filter({ hasText: "E2E Builder Roundtrip" });
   await expect(savedRow).toBeVisible();
   // Name / description / # rows columns.
   await expect(savedRow.locator("td").nth(2)).toHaveText("2");
@@ -56,16 +52,12 @@ test("debugs, saves and reloads a scripted product", async ({ page }) => {
   await expect(page.getByPlaceholder(/event script/)).toHaveCount(7);
 
   await savedRow.getByRole("button", { name: "Load" }).click();
-  await expect(page.locator("#product-name")).toHaveValue(
-    "E2E Builder Roundtrip"
-  );
+  await expect(page.locator("#product-name")).toHaveValue("E2E Builder Roundtrip");
   await expect(page.getByPlaceholder(/event script/)).toHaveCount(2);
   await expect(page.getByPlaceholder(/STRIKE or START/)).toHaveValue("STRIKE");
-  await expect(page.getByPlaceholder(/event script/).first()).toHaveValue(
-    "120.00"
-  );
+  await expect(page.getByPlaceholder(/event script/).first()).toHaveValue("120.00");
   await expect(page.getByPlaceholder(/event script/).nth(1)).toHaveValue(
-    "call pays MAX(spot() - STRIKE, 0.0)"
+    "call pays MAX(spot() - STRIKE, 0.0)",
   );
   await expect(page.locator('input[type="date"]')).toHaveValue("2025-09-15");
 });

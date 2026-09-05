@@ -9,7 +9,7 @@ export default function CalibrationLifecycle({
   phase: string;
   failed: boolean;
 }) {
-  const current = Math.max(0, PHASES.indexOf(phase as typeof PHASES[number]));
+  const current = Math.max(0, PHASES.indexOf(phase as (typeof PHASES)[number]));
   return (
     <ol {...css("lifecycle")} aria-label="Calibration lifecycle">
       {PHASES.map((item, index) => (

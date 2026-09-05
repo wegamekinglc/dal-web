@@ -1,10 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import CurveLabQuoteAuthoring from "../../src/components/CurveLabQuoteAuthoring";
-import {
-  CURVE_LAB_SUCCESS_FAMILIES,
-  curveLabFamily,
-} from "../../src/curves/curveLabRegistry";
+import { CURVE_LAB_SUCCESS_FAMILIES, curveLabFamily } from "../../src/curves/curveLabRegistry";
 
 describe("Curve Lab quote authoring", () => {
   it("owns the exact ordered success registry and compatible conventions", () => {
@@ -54,11 +51,13 @@ describe("Curve Lab quote authoring", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Canonicalize quote" }));
 
-    await waitFor(() => expect(normalize).toHaveBeenCalledWith({
-      instrument_type: "IRS",
-      input_lexeme: "4",
-      input_convention: "PERCENT",
-    }));
+    await waitFor(() =>
+      expect(normalize).toHaveBeenCalledWith({
+        instrument_type: "IRS",
+        input_lexeme: "4",
+        input_convention: "PERCENT",
+      }),
+    );
     expect(onCanonicalQuote).toHaveBeenCalledWith(canonical);
     expect(screen.getByText("0.04")).not.toBeNull();
     expect(screen.getByText("+0.0001 raw / +0.0001 normalized")).not.toBeNull();
@@ -77,12 +76,7 @@ describe("Curve Lab quote authoring", () => {
       normalized_risk_bump: "0.0001",
     });
     const renderQuote = vi.fn().mockResolvedValue({ rendered_quote: "95.8225" });
-    render(
-      <CurveLabQuoteAuthoring
-        canonicalize={normalize}
-        renderQuote={renderQuote}
-      />,
-    );
+    render(<CurveLabQuoteAuthoring canonicalize={normalize} renderQuote={renderQuote} />);
 
     fireEvent.change(screen.getByLabelText("Instrument family"), {
       target: { value: "FUTURE" },
@@ -96,9 +90,9 @@ describe("Curve Lab quote authoring", () => {
     });
 
     await waitFor(() => expect(normalize).toHaveBeenCalledTimes(1));
-    expect(
-      (screen.getByLabelText("Input convention") as HTMLSelectElement).value,
-    ).toBe("PRICE_POINTS");
+    expect((screen.getByLabelText("Input convention") as HTMLSelectElement).value).toBe(
+      "PRICE_POINTS",
+    );
     expect(screen.getAllByText("95.8225")).toHaveLength(2);
     expect(screen.getByText("0.041775 normalized")).not.toBeNull();
   });
@@ -116,10 +110,10 @@ describe("Curve Lab quote authoring", () => {
     };
     const normalize = vi.fn().mockResolvedValue(canonical);
     const renderQuote = vi.fn().mockImplementation(async (request) => ({
-      rendered_quote: request.display_convention === "PERCENT"
-        && request.display_scale === 6
-        ? "4.000000"
-        : "0.0400",
+      rendered_quote:
+        request.display_convention === "PERCENT" && request.display_scale === 6
+          ? "4.000000"
+          : "0.0400",
     }));
     const onCanonicalQuote = vi.fn();
     render(
@@ -142,12 +136,14 @@ describe("Curve Lab quote authoring", () => {
 
     expect(normalize).toHaveBeenCalledTimes(1);
     expect(onCanonicalQuote).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(renderQuote).toHaveBeenLastCalledWith({
-      instrument_type: "DEPOSIT",
-      canonical_raw_quote: "0.04",
-      display_convention: "PERCENT",
-      display_scale: 6,
-    }));
+    await waitFor(() =>
+      expect(renderQuote).toHaveBeenLastCalledWith({
+        instrument_type: "DEPOSIT",
+        canonical_raw_quote: "0.04",
+        display_convention: "PERCENT",
+        display_scale: 6,
+      }),
+    );
     expect(screen.getByText("4.000000")).not.toBeNull();
   });
 
@@ -164,9 +160,10 @@ describe("Curve Lab quote authoring", () => {
     };
     const pending: ((value: { rendered_quote: string }) => void)[] = [];
     const renderQuote = vi.fn().mockImplementation(
-      () => new Promise<{ rendered_quote: string }>((resolve) => {
-        pending.push(resolve);
-      }),
+      () =>
+        new Promise<{ rendered_quote: string }>((resolve) => {
+          pending.push(resolve);
+        }),
     );
     render(
       <CurveLabQuoteAuthoring

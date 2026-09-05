@@ -384,17 +384,19 @@ function apiPath(path: string): string {
 
 function calibrationPath(kind: CalibrationKind): string {
   switch (kind) {
-  case "single":
-    return "/calibrations/single";
-  case "xccy_staged":
-    return "/calibrations/xccy/staged";
-  case "xccy_joint":
-    return "/calibrations/xccy/joint";
+    case "single":
+      return "/calibrations/single";
+    case "xccy_staged":
+      return "/calibrations/xccy/staged";
+    case "xccy_joint":
+      return "/calibrations/xccy/joint";
   }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string> | undefined),
+  };
   // Only attach a JSON content-type when the request actually carries a
   // body — GET / DELETE are "simple" requests and do not need it.
   if (init?.body != null) {
@@ -426,11 +428,7 @@ async function requestBytes(path: string): Promise<Blob> {
   const url = new URL(apiPath(path), window.location.origin);
   const resp = await fetch(url, { headers: {} });
   if (!resp.ok) {
-    throw new ApiClientError(
-      `${resp.status}: ${resp.statusText}`,
-      resp.status,
-      resp.statusText,
-    );
+    throw new ApiClientError(`${resp.status}: ${resp.statusText}`, resp.status, resp.statusText);
   }
   return resp.blob();
 }
@@ -447,8 +445,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(patch),
     }),
-  deleteProduct: (id: string) =>
-    request<undefined>(`/products/${id}`, { method: "DELETE" }),
+  deleteProduct: (id: string) => request<undefined>(`/products/${id}`, { method: "DELETE" }),
   debugProduct: (rows: EventRow[]) =>
     request<{ debug: string }>("/products/debug", {
       method: "POST",
@@ -480,8 +477,7 @@ export const api = {
   listPortfolios: () => request<Portfolio[]>("/portfolios"),
   createPortfolio: (body: { name: string; description?: string }) =>
     request<Portfolio>("/portfolios", { method: "POST", body: JSON.stringify(body) }),
-  deletePortfolio: (id: string) =>
-    request<undefined>(`/portfolios/${id}`, { method: "DELETE" }),
+  deletePortfolio: (id: string) => request<undefined>(`/portfolios/${id}`, { method: "DELETE" }),
   portfolioTrades: (id: string) => request<Trade[]>(`/portfolios/${id}/trades`),
   addTradeToPortfolio: (pid: string, tid: string) =>
     request<Portfolio>(`/portfolios/${pid}/trades/${tid}`, { method: "POST" }),
@@ -520,8 +516,7 @@ export const api = {
     request<CurveLabBuildRun>(`/curve-lab/drafts/${draftId}/build-runs`, {
       method: "POST",
     }),
-  getCurveLabBuildRun: (id: string) =>
-    request<CurveLabBuildRun>(`/curve-lab/build-runs/${id}`),
+  getCurveLabBuildRun: (id: string) => request<CurveLabBuildRun>(`/curve-lab/build-runs/${id}`),
   createCurveLabVersion: (body: {
     draft_id: string;
     draft_revision: number;
@@ -537,9 +532,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   listCurveLabVersions: (includeArchived = false) =>
-    request<CurveLabVersion[]>(
-      `/curve-lab/versions?include_archived=${String(includeArchived)}`,
-    ),
+    request<CurveLabVersion[]>(`/curve-lab/versions?include_archived=${String(includeArchived)}`),
   archiveCurveLabVersion: (id: string) =>
     request<CurveLabVersion>(`/curve-lab/versions/${id}/archive`, {
       method: "POST",
@@ -548,14 +541,10 @@ export const api = {
     request<CurveLabDraft>(`/curve-lab/versions/${id}/clone`, {
       method: "POST",
     }),
-  downloadCurveLabVersion: (id: string) =>
-    requestBytes(`/curve-lab/versions/${id}/native-json`),
+  downloadCurveLabVersion: (id: string) => requestBytes(`/curve-lab/versions/${id}/native-json`),
   getCurveLabRuntimeManifest: (id: string) =>
     request<Record<string, unknown>>(`/curve-lab/versions/${id}/runtime-manifest`),
-  importCurveLabVersion: (
-    payload: Blob,
-    runtimeManifest?: Record<string, unknown>,
-  ) =>
+  importCurveLabVersion: (payload: Blob, runtimeManifest?: Record<string, unknown>) =>
     request<CurveLabImportJob>("/curve-lab/import-jobs", {
       method: "POST",
       body: payload,
@@ -566,8 +555,7 @@ export const api = {
           : {}),
       },
     }),
-  getCurveLabImportJob: (id: string) =>
-    request<CurveLabImportJob>(`/curve-lab/import-jobs/${id}`),
+  getCurveLabImportJob: (id: string) => request<CurveLabImportJob>(`/curve-lab/import-jobs/${id}`),
   createCurveLabFixingSnapshot: (body: {
     id: string;
     observations: {
@@ -587,12 +575,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  getCurveLabRiskRun: (id: string) =>
-    request<CurveLabRiskRun>(`/curve-lab/risk-runs/${id}`),
+  getCurveLabRiskRun: (id: string) => request<CurveLabRiskRun>(`/curve-lab/risk-runs/${id}`),
   getCurveLabMatrix: (runId: string, matrixId: string) =>
-    request<CurveLabMatrix>(
-      `/curve-lab/risk-runs/${runId}/matrices/${matrixId}`,
-    ),
+    request<CurveLabMatrix>(`/curve-lab/risk-runs/${runId}/matrices/${matrixId}`),
 
   submitCalibration: (kind: CalibrationKind, body: unknown) => {
     return request<CalibrationRun>(calibrationPath(kind), {
@@ -600,11 +585,7 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
-  getCalibration: (
-    id: string,
-    quoteBumpIndex?: number,
-    quoteBumpSize?: number,
-  ) => {
+  getCalibration: (id: string, quoteBumpIndex?: number, quoteBumpSize?: number) => {
     const query =
       quoteBumpIndex === undefined || quoteBumpSize === undefined
         ? ""
