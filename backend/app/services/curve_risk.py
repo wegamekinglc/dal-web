@@ -1097,9 +1097,7 @@ def _select_trade_to_node_rows(
             )
         else:
             forbidden_failure = True
-            trade_methods.append(
-                "FAILED_AAD_PARITY" if aad is not None else "FAILED_AAD_EXECUTION"
-            )
+            trade_methods.append("FAILED_AAD_PARITY" if aad is not None else "FAILED_AAD_EXECUTION")
     return selected_rows, trade_methods, forbidden_failure
 
 
@@ -1386,6 +1384,47 @@ def _key_rate_dv01_matrix(
     return matrix
 
 
+_PARALLEL_BUMP_ROW = {
+    "bump_id": "parallel",
+    "kind": "PARALLEL",
+    "quote_id": None,
+    "status": "SUCCEEDED",
+    "raw_bump": None,
+    "normalized_bump": "0.0001",
+    "calibration_status": "SUCCEEDED",
+    "pricing_status": "SUCCEEDED",
+    "error": None,
+}
+
+
+def _key_rate_dv01_success(
+    ctx: _RiskRunContext,
+    columns: list[list[str]],
+    parallel: list[dict],
+) -> tuple[dict[str, object], list[list[str]]]:
+    values = [
+        [columns[column][row] for column in range(len(columns))] for row in range(len(ctx.trades))
+    ]
+    sums = [sum((Decimal(value) for value in row), Decimal(0)) for row in values]
+    fields: dict[str, object] = {
+        "key_rate_sum": [
+            {
+                "trade_id": trade["trade_id"],
+                "value": _decimal_text(sums[index]),
+            }
+            for index, trade in enumerate(ctx.trades)
+        ],
+        "nonlinear_reconciliation": [
+            {
+                "trade_id": trade["trade_id"],
+                "value": _decimal_text(Decimal(parallel[index]["value"]) - sums[index]),
+            }
+            for index, trade in enumerate(ctx.trades)
+        ],
+    }
+    return fields, values
+
+
 def _key_rate_dv01(
     ctx: _RiskRunContext,
     quote_axis: list[dict],
@@ -1394,42 +1433,12 @@ def _key_rate_dv01(
 ) -> tuple[dict[str, object], dict]:
     columns, bump_rows, failed = _key_rate_bump_rows(ctx, quote_axis, base)
     if parallel is not None:
-        bump_rows.insert(
-            0,
-            {
-                "bump_id": "parallel",
-                "kind": "PARALLEL",
-                "quote_id": None,
-                "status": "SUCCEEDED",
-                "raw_bump": None,
-                "normalized_bump": "0.0001",
-                "calibration_status": "SUCCEEDED",
-                "pricing_status": "SUCCEEDED",
-                "error": None,
-            },
-        )
+        bump_rows.insert(0, dict(_PARALLEL_BUMP_ROW))
     result: dict[str, object] = {"quote_bumps": bump_rows}
     if failed or parallel is None:
         return result, _key_rate_dv01_matrix(ctx.trades, quote_axis, ctx.base_currency, None)
-    values = [
-        [columns[column][row] for column in range(len(columns))]
-        for row in range(len(ctx.trades))
-    ]
-    sums = [sum((Decimal(value) for value in row), Decimal(0)) for row in values]
-    result["key_rate_sum"] = [
-        {
-            "trade_id": trade["trade_id"],
-            "value": _decimal_text(sums[index]),
-        }
-        for index, trade in enumerate(ctx.trades)
-    ]
-    result["nonlinear_reconciliation"] = [
-        {
-            "trade_id": trade["trade_id"],
-            "value": _decimal_text(Decimal(parallel[index]["value"]) - sums[index]),
-        }
-        for index, trade in enumerate(ctx.trades)
-    ]
+    fields, values = _key_rate_dv01_success(ctx, columns, parallel)
+    result.update(fields)
     return result, _key_rate_dv01_matrix(ctx.trades, quote_axis, ctx.base_currency, values)
 
 

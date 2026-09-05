@@ -523,17 +523,30 @@ class CurveDraftDocumentInputV2(CurveLabWireModel):
                 {"field": "declarations"},
             )
 
-    def _validate_mode_roles(
+    def _validate_mode_roles(self, declarations: tuple[CurveDeclarationInputV2, ...]) -> None:
+        if self.mode == "SINGLE":
+            self._validate_single_mode_roles(declarations)
+        elif self.mode == "MULTI_CURVE":
+            self._validate_multi_curve_mode_roles(declarations)
+        elif self.mode in {"STAGED_XCCY", "JOINT_XCCY"}:
+            self._validate_xccy_mode_roles(declarations)
+
+    def _validate_single_mode_roles(
         self, declarations: tuple[CurveDeclarationInputV2, ...]
     ) -> None:
         roles = tuple(item.role for item in declarations)
-        if self.mode == "SINGLE" and (len(declarations) != 1 or roles != ("DISCOUNT",)):
+        if len(declarations) != 1 or roles != ("DISCOUNT",):
             raise PydanticCustomError(
                 "draft_topology_invalid",
                 "SINGLE mode requires exactly one discount declaration.",
                 {"field": "mode"},
             )
-        if self.mode == "MULTI_CURVE" and (
+
+    def _validate_multi_curve_mode_roles(
+        self, declarations: tuple[CurveDeclarationInputV2, ...]
+    ) -> None:
+        roles = tuple(item.role for item in declarations)
+        if (
             len(declarations) < 2
             or "DISCOUNT" not in roles
             or "BASIS" in roles
@@ -544,7 +557,10 @@ class CurveDraftDocumentInputV2(CurveLabWireModel):
                 "MULTI_CURVE requires one-currency discount/projection declarations.",
                 {"field": "declarations"},
             )
-        if self.mode in {"STAGED_XCCY", "JOINT_XCCY"} and roles.count("BASIS") != 1:
+
+    def _validate_xccy_mode_roles(self, declarations: tuple[CurveDeclarationInputV2, ...]) -> None:
+        roles = tuple(item.role for item in declarations)
+        if roles.count("BASIS") != 1:
             raise PydanticCustomError(
                 "draft_topology_invalid",
                 "XCCY modes require exactly one basis declaration.",

@@ -98,6 +98,37 @@ const BUILDER_STEPS: { id: CurveBuilderStepId; label: string }[] = [
   { id: "validate", label: "Validate" },
 ];
 
+function CurveBuilderStepper({
+  steps,
+}: {
+  steps: Record<CurveBuilderStepId, CurveBuilderStepState>;
+}) {
+  return (
+    <ol {...css("curve-builder-stepper")} aria-label="Build progress">
+      {BUILDER_STEPS.map((step, index) => {
+        const state: CurveBuilderStepState = steps[step.id];
+        const previousDone = index > 0 && steps[BUILDER_STEPS[index - 1].id] === "done";
+        return (
+          <Fragment key={step.id}>
+            {index > 0 && (
+              <li
+                {...css("curve-builder-step-link", previousDone && "done")}
+                aria-hidden="true"
+              />
+            )}
+            <li {...css("curve-builder-step", state)}>
+              <span {...css("curve-builder-step-bubble")} aria-hidden="true">
+                {state === "done" ? "✓" : state === "failed" ? "!" : index + 1}
+              </span>
+              {step.label}
+            </li>
+          </Fragment>
+        );
+      })}
+    </ol>
+  );
+}
+
 const COMPONENT_KEY = "clab/v1/local/discount/USD/OIS";
 
 const DEFAULT_DRAFT = {
@@ -474,6 +505,32 @@ function MatrixTable({ matrix }: { matrix: CurveLabMatrix }) {
   );
 }
 
+function aggregateSucceededPv(risk: CurveLabRiskRun | null): number {
+  const pricing = risk?.result?.pricing;
+  if (!pricing) return 0;
+  return pricing.reduce((total, row) => {
+    if (row.status !== "SUCCEEDED") return total;
+    return total + Number(row.pv ?? 0);
+  }, 0);
+}
+
+function parsedDraft(source: string): Record<string, unknown> {
+  try {
+    return parseJson(source) as Record<string, unknown>;
+  } catch {
+    return DEFAULT_DRAFT as Record<string, unknown>;
+  }
+}
+
+function parsedTrades(source: string): Record<string, unknown>[] {
+  try {
+    const parsed = parseJson(source);
+    return Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [];
+  } catch {
+    return DEFAULT_TRADES as Record<string, unknown>[];
+  }
+}
+
 const CurveLabWorkspace = forwardRef<CurveLabWorkspaceHandle, CurveLabWorkspaceProps>(
   function CurveLabWorkspace({ onCanonicalTargetChange }, ref) {
     const [tab, setTab] = useState<WorkspaceTab>("build");
@@ -512,21 +569,8 @@ const CurveLabWorkspace = forwardRef<CurveLabWorkspaceHandle, CurveLabWorkspaceP
       () => versions.find((item) => item.id === compareVersionId) ?? null,
       [compareVersionId, versions],
     );
-    const aggregatePv = useMemo(
-      () =>
-        risk?.result?.pricing?.reduce((total, row) => {
-          if (row.status !== "SUCCEEDED") return total;
-          return total + Number(row.pv ?? 0);
-        }, 0) ?? 0,
-      [risk],
-    );
-    const visualDraft = useMemo(() => {
-      try {
-        return parseJson(draftSource) as Record<string, unknown>;
-      } catch {
-        return DEFAULT_DRAFT as Record<string, unknown>;
-      }
-    }, [draftSource]);
+    const aggregatePv = useMemo(() => aggregateSucceededPv(risk), [risk]);
+    const visualDraft = useMemo(() => parsedDraft(draftSource), [draftSource]);
     const visualInstruments = Array.isArray(visualDraft.instruments)
       ? (visualDraft.instruments as Record<string, unknown>[])
       : [];
@@ -536,14 +580,7 @@ const CurveLabWorkspace = forwardRef<CurveLabWorkspaceHandle, CurveLabWorkspaceP
     const dependencyVersionIds = Array.isArray(visualDraft.dependency_version_ids)
       ? (visualDraft.dependency_version_ids as string[])
       : [];
-    const visualTrades = useMemo(() => {
-      try {
-        const parsed = parseJson(tradeSource);
-        return Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [];
-      } catch {
-        return DEFAULT_TRADES as Record<string, unknown>[];
-      }
-    }, [tradeSource]);
+    const visualTrades = useMemo(() => parsedTrades(tradeSource), [tradeSource]);
 
     const invalidateCanonicalTarget = () => {
       canonicalTargetTokenRef.current += 1;
@@ -1118,28 +1155,7 @@ const CurveLabWorkspace = forwardRef<CurveLabWorkspaceHandle, CurveLabWorkspaceP
               ))}
             </div>
 
-            <ol {...css("curve-builder-stepper")} aria-label="Build progress">
-              {BUILDER_STEPS.map((step, index) => {
-                const state: CurveBuilderStepState = steps[step.id];
-                const previousDone = index > 0 && steps[BUILDER_STEPS[index - 1].id] === "done";
-                return (
-                  <Fragment key={step.id}>
-                    {index > 0 && (
-                      <li
-                        {...css("curve-builder-step-link", previousDone && "done")}
-                        aria-hidden="true"
-                      />
-                    )}
-                    <li {...css("curve-builder-step", state)}>
-                      <span {...css("curve-builder-step-bubble")} aria-hidden="true">
-                        {state === "done" ? "✓" : state === "failed" ? "!" : index + 1}
-                      </span>
-                      {step.label}
-                    </li>
-                  </Fragment>
-                );
-              })}
-            </ol>
+            <CurveBuilderStepper steps={steps} />
 
             {showRebuildBanner && (
               <div {...css("curve-builder-banner")} role="status">

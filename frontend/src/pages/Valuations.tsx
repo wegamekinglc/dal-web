@@ -139,7 +139,7 @@ export default function Valuations() {
                         <td colSpan={8}>
                           <div {...css("panel")} {...inlineStyle({ margin: 0 })}>
                             <h3 {...css("panel-title")}>Error</h3>
-                            <p {...css("error")}>{r.error_message || "Unknown error"}</p>
+                            <p {...css("error")}>{r.error_message ?? "Unknown error"}</p>
                           </div>
                         </td>
                       </tr>
