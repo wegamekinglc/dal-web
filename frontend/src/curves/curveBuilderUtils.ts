@@ -87,30 +87,37 @@ export function quoteSeries(
   });
   const start = Date.parse(asOf);
   if (!Number.isFinite(start)) return [];
-  return instruments.flatMap((instrument, instrumentIndex) => {
-    if (instrument.included === false) return [];
-    const family = String(instrument.instrument_type ?? "");
-    if (!RATE_FAMILIES.has(family)) return [];
-    const percent = quoteToPercent(family, instrument.raw_quote);
-    if (percent === null) return [];
-    const maturity = Date.parse(String(instrument.maturity_date ?? ""));
-    if (!Number.isFinite(maturity) || maturity <= start) return [];
-    const normalizedRaw = typeof instrument.instrument_id === "string"
-      ? normalizedByInstrumentId.get(instrument.instrument_id)
-      : undefined;
-    const normalizedValue = Number(normalizedRaw);
-    const days = Math.round((maturity - start) / DAY_MS);
-    return [{
-      key: String(instrument.instrument_id ?? instrumentIndex),
-      instrumentIndex,
-      tenor: formatTenor(asOf, String(instrument.maturity_date)),
-      days,
-      percent,
-      normalizedPercent: Number.isFinite(normalizedValue)
-        ? Math.abs(normalizedValue) < 1 ? normalizedValue * 100 : normalizedValue
-        : null,
-    }];
-  }).sort((left, right) => left.days - right.days);
+  return instruments
+    .flatMap((instrument, instrumentIndex) => {
+      if (instrument.included === false) return [];
+      const family = String(instrument.instrument_type ?? "");
+      if (!RATE_FAMILIES.has(family)) return [];
+      const percent = quoteToPercent(family, instrument.raw_quote);
+      if (percent === null) return [];
+      const maturity = Date.parse(String(instrument.maturity_date ?? ""));
+      if (!Number.isFinite(maturity) || maturity <= start) return [];
+      const normalizedRaw =
+        typeof instrument.instrument_id === "string"
+          ? normalizedByInstrumentId.get(instrument.instrument_id)
+          : undefined;
+      const normalizedValue = Number(normalizedRaw);
+      const days = Math.round((maturity - start) / DAY_MS);
+      return [
+        {
+          key: String(instrument.instrument_id ?? instrumentIndex),
+          instrumentIndex,
+          tenor: formatTenor(asOf, String(instrument.maturity_date)),
+          days,
+          percent,
+          normalizedPercent: Number.isFinite(normalizedValue)
+            ? Math.abs(normalizedValue) < 1
+              ? normalizedValue * 100
+              : normalizedValue
+            : null,
+        },
+      ];
+    })
+    .sort((left, right) => left.days - right.days);
 }
 
 export interface CurveBuilderStepperInput {
@@ -131,25 +138,27 @@ export function stepperStates(
   input: CurveBuilderStepperInput,
 ): Record<CurveBuilderStepId, CurveBuilderStepState> {
   const declaration: CurveBuilderStepState = input.declarationCount > 0 ? "done" : "active";
-  const dependenciesDone = input.dependencyCount > 0
-    || input.dependencyAvailable === 0
-    || input.mode === "SINGLE";
+  const dependenciesDone =
+    input.dependencyCount > 0 || input.dependencyAvailable === 0 || input.mode === "SINGLE";
   const dependencies: CurveBuilderStepState = dependenciesDone
     ? "done"
-    : declaration === "done" ? "active" : "todo";
+    : declaration === "done"
+      ? "active"
+      : "todo";
   const instrumentsDone = input.includedInstrumentCount > 0;
   const instruments: CurveBuilderStepState = instrumentsDone
     ? "done"
-    : dependencies === "done" ? "active" : "todo";
+    : dependencies === "done"
+      ? "active"
+      : "todo";
   let solve: CurveBuilderStepState = "todo";
   if (input.buildState !== null) {
     if (NON_TERMINAL_BUILD_STATES.has(input.buildState)) solve = "running";
     else if (input.buildState === "SUCCEEDED") solve = "done";
     else solve = "failed";
   }
-  const validate: CurveBuilderStepState = input.fitState === "NATIVE_ARCHIVE_VALIDATED"
-    ? "done"
-    : "todo";
+  const validate: CurveBuilderStepState =
+    input.fitState === "NATIVE_ARCHIVE_VALIDATED" ? "done" : "todo";
   return { declaration, dependencies, instruments, solve, validate };
 }
 

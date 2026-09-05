@@ -11,7 +11,7 @@ const num = (value: number, digits: number) =>
 test("creates, updates and deletes a Black-Scholes model", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   page.on("dialog", (dialog) => {
@@ -44,29 +44,21 @@ test("creates, updates and deletes a Black-Scholes model", async ({ page }) => {
   expect(updateResp.ok()).toBeTruthy();
 
   await page.reload();
-  const updatedRow = page
-    .getByRole("row")
-    .filter({ hasText: "E2E Beta Model" });
+  const updatedRow = page.getByRole("row").filter({ hasText: "E2E Beta Model" });
   await expect(updatedRow).toBeVisible();
   await expect(updatedRow).toContainText("BSModelData_");
   await expect(updatedRow).toContainText(num(0.35, 4));
   await expect(updatedRow).toContainText(num(0.01, 4));
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Alpha Model" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Alpha Model" })).toHaveCount(0);
 
   await updatedRow.getByRole("button", { name: "Delete" }).click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Beta Model" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Beta Model" })).toHaveCount(0);
 });
 
-test("rejects a Dupire surface whose vols do not match spots x times", async ({
-  page,
-}) => {
+test("rejects a Dupire surface whose vols do not match spots x times", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   await page.goto("/models");
@@ -80,19 +72,15 @@ test("rejects a Dupire surface whose vols do not match spots x times", async ({
   const banner = page.locator("div.error");
   await expect(banner).toContainText("422");
   await expect(banner).toContainText(
-    "Dupire vols must be a rectangular matrix matching spots x times"
+    "Dupire vols must be a rectangular matrix matching spots x times",
   );
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Broken Dupire" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Broken Dupire" })).toHaveCount(0);
 });
 
-test("model delete is guarded while a trade references it", async ({
-  page,
-}) => {
+test("model delete is guarded while a trade references it", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   const productResp = await page.request.post("/api/products", {
@@ -143,9 +131,7 @@ test("model delete is guarded while a trade references it", async ({
 
   // Deleting the referenced model is rejected with a 409 naming the trade.
   await page.goto("/models");
-  const modelRow = page
-    .getByRole("row")
-    .filter({ hasText: "E2E Guarded Model" });
+  const modelRow = page.getByRole("row").filter({ hasText: "E2E Guarded Model" });
   await expect(modelRow).toBeVisible();
   await modelRow.getByRole("button", { name: "Delete" }).click();
 
@@ -159,7 +145,5 @@ test("model delete is guarded while a trade references it", async ({
   const deleteResp = await page.request.delete(`/api/trades/${trade.id}`);
   expect(deleteResp.status()).toBe(204);
   await modelRow.getByRole("button", { name: "Delete" }).click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Guarded Model" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Guarded Model" })).toHaveCount(0);
 });

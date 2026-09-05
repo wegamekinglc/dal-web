@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
 const frontendPort = Number(process.env.DAL_PLAYWRIGHT_FRONTEND_PORT ?? "5173");
 const backendPort = Number(process.env.DAL_PLAYWRIGHT_BACKEND_PORT ?? "8001");

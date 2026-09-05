@@ -27,8 +27,9 @@ describe("Curve Lab V2 workspace", () => {
     const advanced = screen.getByText("Solver & advanced JSON").closest("details");
     expect(advanced?.open).toBe(false);
     expect(
-      Array.from((screen.getByLabelText("Family 1") as HTMLSelectElement).options)
-        .map((option) => option.value),
+      Array.from((screen.getByLabelText("Family 1") as HTMLSelectElement).options).map(
+        (option) => option.value,
+      ),
     ).toEqual(CURVE_LAB_SUCCESS_FAMILIES);
   });
 
@@ -48,104 +49,139 @@ describe("Curve Lab V2 workspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /EUR OIS · Discount/ }));
     expect((screen.getByLabelText("Declaration currency 2") as HTMLInputElement).value).toBe("EUR");
-    expect((screen.getByLabelText("Declaration role 2") as HTMLSelectElement).value).toBe("DISCOUNT");
+    expect((screen.getByLabelText("Declaration role 2") as HTMLSelectElement).value).toBe(
+      "DISCOUNT",
+    );
     expect(screen.getAllByLabelText(/Family \d/)).toHaveLength(3);
   });
 
   it.each([
-    ["DEPOSIT", "USD", "0.04", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      index_name: "USD-SOFR",
-      forecast_tenor: "3M",
-      day_basis: "ACT_365F",
-      collateral: "OIS",
-      use_projection_curve: false,
-    }],
-    ["FRA", "USD", "0.04", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      index_name: "USD-SOFR",
-      forecast_tenor: "3M",
-      day_basis: "ACT_365F",
-      collateral: "OIS",
-      use_projection_curve: false,
-    }],
-    ["FUTURE", "USD", "95.8225", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      index_name: "USD-SOFR",
-      forecast_tenor: "3M",
-      day_basis: "ACT_365F",
-      collateral: "OIS",
-      use_projection_curve: false,
-      convexity_adjustment: "0",
-    }],
-    ["OIS", "USD", "0.04", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      fixed_payment_frequency: "12M",
-      fixed_day_basis: "ACT_365F",
-      float_payment_frequency: "12M",
-      float_day_basis: "ACT_365F",
-      float_forecast_tenor: "3M",
-      float_collateral: "OIS",
-      float_use_projection_curve: false,
-      index_name: "USD-SOFR",
-    }],
-    ["IRS", "USD", "0.04", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      fixed_payment_frequency: "12M",
-      fixed_day_basis: "ACT_365F",
-      float_payment_frequency: "3M",
-      float_day_basis: "ACT_365F",
-      float_forecast_tenor: "3M",
-      float_collateral: "OIS",
-      float_use_projection_curve: false,
-      index_name: "USD-IBOR-3M",
-    }],
-    ["BASIS_SWAP", "USD", "0.001", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      spread_payment_frequency: "3M",
-      spread_day_basis: "ACT_365F",
-      spread_forecast_tenor: "3M",
-      spread_collateral: "OIS",
-      spread_use_projection_curve: false,
-      reference_payment_frequency: "6M",
-      reference_day_basis: "ACT_365F",
-      reference_forecast_tenor: "6M",
-      reference_collateral: "OIS",
-      reference_use_projection_curve: false,
-    }],
-    ["XCCY", "USD-EUR", "0.001", {
-      component_key: "clab/v1/local/discount/USD/OIS",
-      domestic_notional: "1000000",
-      foreign_notional: "900000",
-      domestic_payment_frequency: "3M",
-      domestic_day_basis: "ACT_365F",
-      domestic_forecast_tenor: "3M",
-      domestic_collateral: "OIS",
-      domestic_use_projection_curve: false,
-      foreign_payment_frequency: "3M",
-      foreign_day_basis: "ACT_365F",
-      foreign_forecast_tenor: "3M",
-      foreign_collateral: "OIS",
-      foreign_use_projection_curve: false,
-      fx_spot: 1.1,
-      fx_forward_collateral: "OIS",
-    }],
+    [
+      "DEPOSIT",
+      "USD",
+      "0.04",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        index_name: "USD-SOFR",
+        forecast_tenor: "3M",
+        day_basis: "ACT_365F",
+        collateral: "OIS",
+        use_projection_curve: false,
+      },
+    ],
+    [
+      "FRA",
+      "USD",
+      "0.04",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        index_name: "USD-SOFR",
+        forecast_tenor: "3M",
+        day_basis: "ACT_365F",
+        collateral: "OIS",
+        use_projection_curve: false,
+      },
+    ],
+    [
+      "FUTURE",
+      "USD",
+      "95.8225",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        index_name: "USD-SOFR",
+        forecast_tenor: "3M",
+        day_basis: "ACT_365F",
+        collateral: "OIS",
+        use_projection_curve: false,
+        convexity_adjustment: "0",
+      },
+    ],
+    [
+      "OIS",
+      "USD",
+      "0.04",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        fixed_payment_frequency: "12M",
+        fixed_day_basis: "ACT_365F",
+        float_payment_frequency: "12M",
+        float_day_basis: "ACT_365F",
+        float_forecast_tenor: "3M",
+        float_collateral: "OIS",
+        float_use_projection_curve: false,
+        index_name: "USD-SOFR",
+      },
+    ],
+    [
+      "IRS",
+      "USD",
+      "0.04",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        fixed_payment_frequency: "12M",
+        fixed_day_basis: "ACT_365F",
+        float_payment_frequency: "3M",
+        float_day_basis: "ACT_365F",
+        float_forecast_tenor: "3M",
+        float_collateral: "OIS",
+        float_use_projection_curve: false,
+        index_name: "USD-IBOR-3M",
+      },
+    ],
+    [
+      "BASIS_SWAP",
+      "USD",
+      "0.001",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        spread_payment_frequency: "3M",
+        spread_day_basis: "ACT_365F",
+        spread_forecast_tenor: "3M",
+        spread_collateral: "OIS",
+        spread_use_projection_curve: false,
+        reference_payment_frequency: "6M",
+        reference_day_basis: "ACT_365F",
+        reference_forecast_tenor: "6M",
+        reference_collateral: "OIS",
+        reference_use_projection_curve: false,
+      },
+    ],
+    [
+      "XCCY",
+      "USD-EUR",
+      "0.001",
+      {
+        component_key: "clab/v1/local/discount/USD/OIS",
+        domestic_notional: "1000000",
+        foreign_notional: "900000",
+        domestic_payment_frequency: "3M",
+        domestic_day_basis: "ACT_365F",
+        domestic_forecast_tenor: "3M",
+        domestic_collateral: "OIS",
+        domestic_use_projection_curve: false,
+        foreign_payment_frequency: "3M",
+        foreign_day_basis: "ACT_365F",
+        foreign_forecast_tenor: "3M",
+        foreign_collateral: "OIS",
+        foreign_use_projection_curve: false,
+        fx_spot: 1.1,
+        fx_forward_collateral: "OIS",
+      },
+    ],
   ])(
     "creates a legal %s draft from the primary visual family control",
     async (family, currencyOrPair, rawQuote, terms) => {
       vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-      const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-        async (body) => ({
-          id: "a".repeat(32),
-          schema_version: 2,
-          revision: 1,
-          fingerprint: "b".repeat(64),
-          state: "READY_TO_BUILD",
-          document: body as Record<string, unknown>,
-          created_at: "2026-01-15T00:00:00Z",
-          updated_at: "2026-01-15T00:00:00Z",
-        }),
-      );
+      const create = vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+        id: "a".repeat(32),
+        schema_version: 2,
+        revision: 1,
+        fingerprint: "b".repeat(64),
+        state: "READY_TO_BUILD",
+        document: body as Record<string, unknown>,
+        created_at: "2026-01-15T00:00:00Z",
+        updated_at: "2026-01-15T00:00:00Z",
+      }));
 
       render(<CurveLabWorkspace />);
       fireEvent.change(screen.getByLabelText("Family 1"), {
@@ -212,30 +248,36 @@ describe("Curve Lab V2 workspace", () => {
       stale: false,
       request: {},
       resolved_plan: { mode: "SINGLE" },
-      quote_axis: [{
-        global_quote_index: 0,
-        quote_id: "quote-0",
-        component_key: "curve",
-        display_label: "Deposit 2027",
-        normalized_quote: "0.04",
-      }],
-      parameter_axis: [{
-        global_parameter_index: 0,
-        parameter_id: "parameter-0",
-        component_key: "curve",
-        display_label: "USD 2027",
-        coordinate_kind: "PIECEWISE_CONSTANT_FWD",
-        node_date: "2027-01-15",
-      }],
-      curve_views: [{
-        parameter_id: "parameter-0",
-        component_key: "curve",
-        node_date: "2027-01-15",
-        side: "RIGHT" as const,
-        discount_factor: 0.961,
-        zero_rate: 0.04,
-        one_day_forward_rate: 0.041,
-      }],
+      quote_axis: [
+        {
+          global_quote_index: 0,
+          quote_id: "quote-0",
+          component_key: "curve",
+          display_label: "Deposit 2027",
+          normalized_quote: "0.04",
+        },
+      ],
+      parameter_axis: [
+        {
+          global_parameter_index: 0,
+          parameter_id: "parameter-0",
+          component_key: "curve",
+          display_label: "USD 2027",
+          coordinate_kind: "PIECEWISE_CONSTANT_FWD",
+          node_date: "2027-01-15",
+        },
+      ],
+      curve_views: [
+        {
+          parameter_id: "parameter-0",
+          component_key: "curve",
+          node_date: "2027-01-15",
+          side: "RIGHT" as const,
+          discount_factor: 0.961,
+          zero_rate: 0.04,
+          one_day_forward_rate: 0.041,
+        },
+      ],
       dependency_manifest: [],
       diagnostics: { fit_state: "NATIVE_ARCHIVE_VALIDATED" },
       native_payload_hash: "d".repeat(64),
@@ -259,9 +301,10 @@ describe("Curve Lab V2 workspace", () => {
       created_at: "2026-01-15T00:00:02Z",
     };
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({ ...draft, document: body as Record<string, unknown> }),
-    );
+    vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      ...draft,
+      document: body as Record<string, unknown>,
+    }));
     vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(build);
     vi.spyOn(api, "createCurveLabVersion").mockResolvedValue(version);
 
@@ -278,26 +321,31 @@ describe("Curve Lab V2 workspace", () => {
     const quoteAxis = screen.getByRole("heading", { name: "Quote axis" }).closest("section");
     expect(quoteAxis?.querySelector("th")?.className).toContain("num");
     expect(quoteAxis?.querySelector("tbody td")?.className).toContain("num");
-    expect(screen.getByRole("table", { name: "Discount factors curve values" }).textContent)
-      .toContain("0.9610000000");
+    expect(
+      screen.getByRole("table", { name: "Discount factors curve values" }).textContent,
+    ).toContain("0.9610000000");
     fireEvent.click(screen.getByRole("button", { name: "Zero rates" }));
-    expect(screen.getByRole("table", { name: "Zero rates curve values" }).textContent)
-      .toContain("0.0400000000 (4.000000%)");
+    expect(screen.getByRole("table", { name: "Zero rates curve values" }).textContent).toContain(
+      "0.0400000000 (4.000000%)",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Forwards" }));
-    expect(screen.getByRole("table", { name: "Forwards curve values" }).textContent)
-      .toContain("0.0410000000 (4.100000%)");
+    expect(screen.getByRole("table", { name: "Forwards curve values" }).textContent).toContain(
+      "0.0410000000 (4.100000%)",
+    );
     fireEvent.click(screen.getByRole("tab", { name: "Build" }));
     fireEvent.change(screen.getByLabelText("Version name"), {
       target: { value: "USD OIS" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Publish version" }));
-    await waitFor(() => expect(api.createCurveLabVersion).toHaveBeenCalledWith(
-      expect.objectContaining({
-        draft_id: draft.id,
-        build_run_id: build.id,
-        name: "USD OIS",
-      }),
-    ));
+    await waitFor(() =>
+      expect(api.createCurveLabVersion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          draft_id: draft.id,
+          build_run_id: build.id,
+          name: "USD OIS",
+        }),
+      ),
+    );
     expect(screen.getByText("Published USD OIS")).not.toBeNull();
   });
 
@@ -334,11 +382,13 @@ describe("Curve Lab V2 workspace", () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
     vi.spyOn(api, "createCurveLabDraft").mockResolvedValue(draft);
     vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(admitted);
-    const load = vi.spyOn(api, "getCurveLabBuildRun").mockImplementation(
-      async () => load.mock.calls.length > 205
-        ? { ...admitted, state: "SUCCEEDED", finished_at: "2026-01-15T00:00:11Z" }
-        : admitted,
-    );
+    const load = vi
+      .spyOn(api, "getCurveLabBuildRun")
+      .mockImplementation(async () =>
+        load.mock.calls.length > 205
+          ? { ...admitted, state: "SUCCEEDED", finished_at: "2026-01-15T00:00:11Z" }
+          : admitted,
+      );
 
     render(<CurveLabWorkspace />);
     await act(async () => {
@@ -393,7 +443,8 @@ describe("Curve Lab V2 workspace", () => {
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
     vi.spyOn(api, "createCurveLabDraft").mockResolvedValue(draft);
     vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(admitted);
-    const load = vi.spyOn(api, "getCurveLabBuildRun")
+    const load = vi
+      .spyOn(api, "getCurveLabBuildRun")
       .mockRejectedValueOnce(new Error("network unavailable"))
       .mockResolvedValueOnce({
         ...admitted,
@@ -455,9 +506,10 @@ describe("Curve Lab V2 workspace", () => {
       finished_at: "2026-01-15T00:00:01Z",
     };
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({ ...draft, document: body as Record<string, unknown> }),
-    );
+    vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      ...draft,
+      document: body as Record<string, unknown>,
+    }));
     vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(build);
 
     render(<CurveLabWorkspace />);
@@ -500,9 +552,10 @@ describe("Curve Lab V2 workspace", () => {
       finished_at: "2026-01-15T00:00:01Z",
     };
     vi.spyOn(api, "listCurveLabVersions").mockResolvedValue([]);
-    vi.spyOn(api, "createCurveLabDraft").mockImplementation(
-      async (body) => ({ ...draft, document: body as Record<string, unknown> }),
-    );
+    vi.spyOn(api, "createCurveLabDraft").mockImplementation(async (body) => ({
+      ...draft,
+      document: body as Record<string, unknown>,
+    }));
     vi.spyOn(api, "createCurveLabBuildRun").mockResolvedValue(build);
 
     render(<CurveLabWorkspace />);

@@ -1,14 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 // The app formats notionals via toLocaleString(undefined, ...); derive
 // expected text instead of hard-coding en-US separators.
 const money = (value: number) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
 
-async function seedProductAndModel(
-  page: Page,
-  names: { product: string; model: string }
-) {
+async function seedProductAndModel(page: Page, names: { product: string; model: string }) {
   const productResp = await page.request.post("/api/products", {
     data: {
       name: names.product,
@@ -43,7 +40,7 @@ async function seedProductAndModel(
 test("creates, updates and deletes a trade", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   await seedProductAndModel(page, {
@@ -82,29 +79,21 @@ test("creates, updates and deletes a trade", async ({ page }) => {
   expect(updateResp.ok()).toBeTruthy();
 
   await page.reload();
-  const renamedRow = page
-    .getByRole("row")
-    .filter({ hasText: "E2E Ticket Beta" });
+  const renamedRow = page.getByRole("row").filter({ hasText: "E2E Ticket Beta" });
   await expect(renamedRow).toBeVisible();
   await expect(renamedRow).toContainText(money(3_500_000));
   // Untouched fields survive the partial update.
   await expect(renamedRow).toContainText("E2E Ticket Product");
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Ticket Alpha" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Ticket Alpha" })).toHaveCount(0);
 
   await renamedRow.getByRole("button", { name: "Delete" }).click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Ticket Beta" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Ticket Beta" })).toHaveCount(0);
 });
 
-test("product delete is guarded while a trade references it", async ({
-  page,
-}) => {
+test("product delete is guarded while a trade references it", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   const { productId, modelId } = await seedProductAndModel(page, {
@@ -131,9 +120,7 @@ test("product delete is guarded while a trade references it", async ({
 
   // Deleting the referenced product is rejected with a 409 naming the trade.
   await page.goto("/products");
-  const productRow = page
-    .getByRole("row")
-    .filter({ hasText: "E2E Guard Product" });
+  const productRow = page.getByRole("row").filter({ hasText: "E2E Guard Product" });
   await expect(productRow).toBeVisible();
   await productRow.getByRole("button", { name: "Delete" }).click();
 
@@ -147,9 +134,7 @@ test("product delete is guarded while a trade references it", async ({
   await page.goto("/trades");
   const tradeRow = page.getByRole("row").filter({ hasText: "E2E Guard Trade" });
   await tradeRow.getByRole("button", { name: "Delete" }).click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Guard Trade" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Guard Trade" })).toHaveCount(0);
 
   // The product delete now succeeds.
   await page.goto("/products");
@@ -158,7 +143,5 @@ test("product delete is guarded while a trade references it", async ({
     .filter({ hasText: "E2E Guard Product" })
     .getByRole("button", { name: "Delete" })
     .click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "E2E Guard Product" })
-  ).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: "E2E Guard Product" })).toHaveCount(0);
 });

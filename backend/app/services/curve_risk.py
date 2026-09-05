@@ -685,6 +685,65 @@ def _failed_matrix(
     }
 
 
+def _invalid_dependency_context(version: dict, message: str) -> None:
+    raise CurveLabLifecycleError(
+        409,
+        "RISK_DEPENDENCY_CONTEXT_INVALID",
+        message,
+        "curve_version_id",
+        version["id"],
+        resource_id=version["id"],
+    )
+
+
+def _require_valid_manifest(manifest: object, version: dict) -> None:
+    if not isinstance(manifest, list):
+        _invalid_dependency_context(version, "Curve version dependency evidence is invalid.")
+
+
+def _manifest_version_ids(manifest: list, version: dict) -> list:
+    version_ids = [entry.get("version_id") for entry in manifest if isinstance(entry, dict)]
+    if len(version_ids) != len(manifest) or any(
+        not isinstance(version_id, str) for version_id in version_ids
+    ):
+        _invalid_dependency_context(version, "Curve version dependency evidence is invalid.")
+    return version_ids
+
+
+def _require_published_manifest_match(manifest: list, version: dict) -> None:
+    verification = version.get("verification")
+    published_manifest = (
+        verification.get("dependency_manifest") if isinstance(verification, dict) else None
+    )
+    if published_manifest is not None and published_manifest != manifest:
+        _invalid_dependency_context(
+            version,
+            "Published dependency evidence does not match the build.",
+        )
+
+
+def _resolve_runtime_dependency(entry: dict, by_id: dict[str, dict], version: dict) -> dict:
+    dependency_id = entry["version_id"]
+    dependency = by_id.get(dependency_id)
+    payload = dependency.get("native_payload") if dependency is not None else None
+    if (
+        dependency is None
+        or not isinstance(payload, bytes)
+        or dependency.get("native_payload_hash") != entry.get("content_hash")
+        or dependency.get("root_kind") != entry.get("root_kind")
+        or hashlib.sha256(payload).hexdigest() != entry.get("content_hash")
+    ):
+        raise CurveLabLifecycleError(
+            409,
+            "RISK_DEPENDENCY_CONTEXT_UNAVAILABLE",
+            "A pinned curve dependency cannot be reconstructed exactly.",
+            "curve_version_id",
+            version["id"],
+            resource_id=dependency_id,
+        )
+    return dependency
+
+
 def _runtime_dependencies(
     store: StoreProtocol,
     build: dict | None,
@@ -693,104 +752,41 @@ def _runtime_dependencies(
     if build is None:
         return []
     manifest = build.get("dependency_manifest")
-    if not isinstance(manifest, list):
-        raise CurveLabLifecycleError(
-            409,
-            "RISK_DEPENDENCY_CONTEXT_INVALID",
-            "Curve version dependency evidence is invalid.",
-            "curve_version_id",
-            version["id"],
-            resource_id=version["id"],
-        )
-    verification = version.get("verification")
-    published_manifest = (
-        verification.get("dependency_manifest") if isinstance(verification, dict) else None
-    )
-    if published_manifest is not None and published_manifest != manifest:
-        raise CurveLabLifecycleError(
-            409,
-            "RISK_DEPENDENCY_CONTEXT_INVALID",
-            "Published dependency evidence does not match the build.",
-            "curve_version_id",
-            version["id"],
-            resource_id=version["id"],
-        )
-    version_ids = [entry.get("version_id") for entry in manifest if isinstance(entry, dict)]
-    if len(version_ids) != len(manifest) or any(
-        not isinstance(version_id, str) for version_id in version_ids
-    ):
-        raise CurveLabLifecycleError(
-            409,
-            "RISK_DEPENDENCY_CONTEXT_INVALID",
-            "Curve version dependency evidence is invalid.",
-            "curve_version_id",
-            version["id"],
-            resource_id=version["id"],
-        )
+    _require_valid_manifest(manifest, version)
+    _require_published_manifest_match(manifest, version)
+    version_ids = _manifest_version_ids(manifest, version)
     resolved = store.resolve_curve_lab_versions(version_ids)
     by_id = {record["id"]: record for record in resolved}
-    dependencies: list[dict] = []
-    for entry in manifest:
-        dependency_id = entry["version_id"]
-        dependency = by_id.get(dependency_id)
-        payload = dependency.get("native_payload") if dependency is not None else None
-        if (
-            dependency is None
-            or not isinstance(payload, bytes)
-            or dependency.get("native_payload_hash") != entry.get("content_hash")
-            or dependency.get("root_kind") != entry.get("root_kind")
-            or hashlib.sha256(payload).hexdigest() != entry.get("content_hash")
-        ):
-            raise CurveLabLifecycleError(
-                409,
-                "RISK_DEPENDENCY_CONTEXT_UNAVAILABLE",
-                "A pinned curve dependency cannot be reconstructed exactly.",
-                "curve_version_id",
-                version["id"],
-                resource_id=dependency_id,
-            )
-        dependencies.append(dependency)
-    return dependencies
+    return [_resolve_runtime_dependency(entry, by_id, version) for entry in manifest]
 
 
-def _admit_risk_run(
-    store: StoreProtocol,
-    gateway: DalGateway,
+def _check_import_lineage(
     request: RiskRunRequestV2,
-    *,
-    run_id: str,
-    request_json: dict,
-    request_bytes: bytes,
-) -> _AdmittedRiskSnapshot:
-    fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
-    version = get_version(store, request.curve_version_id)
-    quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
-    if version["source_kind"] == "IMPORT" and (
-        quote_risk
-        or {
-            "CALIBRATION_JACOBIAN",
-            "COMPOSED_QUOTE_DIAGNOSTIC",
-        }
-        & set(request.sensitivity_layers)
-    ):
-        raise CurveLabLifecycleError(
-            409,
-            "CALIBRATION_LINEAGE_REQUIRED",
-            "Quote risk requires verified calibration lineage.",
-            "measures",
-            next(
-                (measure for measure in request.measures if measure in {"DV01", "KEY_RATE_DV01"}),
-                None,
-            ),
-            resource_id=request.curve_version_id,
-            constraint=("quote risk requires a built or replay-verified calibration manifest"),
-        )
-
-    build = (
-        store.get_curve_lab_build_run(version["build_run_id"])
-        if version["source_kind"] == "BUILD"
-        else None
+    version: dict,
+    quote_risk: bool,
+) -> None:
+    if version["source_kind"] != "IMPORT":
+        return
+    if not quote_risk and not {
+        "CALIBRATION_JACOBIAN",
+        "COMPOSED_QUOTE_DIAGNOSTIC",
+    } & set(request.sensitivity_layers):
+        return
+    raise CurveLabLifecycleError(
+        409,
+        "CALIBRATION_LINEAGE_REQUIRED",
+        "Quote risk requires verified calibration lineage.",
+        "measures",
+        next(
+            (measure for measure in request.measures if measure in {"DV01", "KEY_RATE_DV01"}),
+            None,
+        ),
+        resource_id=request.curve_version_id,
+        constraint=("quote risk requires a built or replay-verified calibration manifest"),
     )
+
+
+def _runtime_document(build: dict | None, version: dict, request: RiskRunRequestV2) -> dict:
     document = (
         deepcopy(build["request"])
         if build is not None
@@ -804,7 +800,10 @@ def _admit_risk_run(
             "curve_version_id",
             request.curve_version_id,
         )
-    dependencies = _runtime_dependencies(store, build, version)
+    return document
+
+
+def _runtime_axes(build: dict | None, version: dict) -> tuple[list, list]:
     quote_axis = (
         list(build["quote_axis"])
         if build is not None
@@ -815,20 +814,13 @@ def _admit_risk_run(
         if build is not None
         else list(version["verification"].get("parameter_axis", []))
     )
-    trades = list(request.target.model_dump(mode="json")["trades"])
-    default_component_key = str(resolved_declaration_order(document)[0]["component_key"])
-    required_fixings = gateway.curve_lab_required_historical_fixings(
-        trades,
-        request.evaluation_time.isoformat(),
-        default_component_key,
-    )
-    expected_by_key = {
-        (
-            str(item["index_name"]),
-            canonical_utc_datetime(str(item["fixing_time"])),
-        ): item
-        for item in required_fixings
-    }
+    return quote_axis, parameter_axis
+
+
+def _validate_fixing_compatibility(
+    fixing_snapshot: dict,
+    expected_by_key: dict[tuple[str, datetime], dict],
+) -> None:
     supplied_by_key: dict[tuple[str, datetime], dict] = {}
     for index, observation in enumerate(fixing_snapshot["observations"]):
         key = (
@@ -872,14 +864,14 @@ def _admit_risk_run(
             resource_id=fixing_snapshot["id"],
             constraint="fixing_time before evaluation_time requires an exact snapshot value",
         )
-    requested_layers = set(request.sensitivity_layers)
-    parameter_components = {axis["component_key"] for axis in parameter_axis}
-    aad_eligible = [
-        trade
-        for trade in trades
-        if trade["instrument_type"] == "DEPOSIT"
-        and trade["terms"].get("discount_component_key") in parameter_components
-    ]
+
+
+def _check_method_fallbacks(
+    request: RiskRunRequestV2,
+    requested_layers: set[str],
+    aad_eligible: list[dict],
+    trades: list[dict],
+) -> None:
     if (
         {"TRADE_TO_NODE", "COMPOSED_QUOTE_DIAGNOSTIC"} & requested_layers
         and request.options.aad_fallback == "FORBID"
@@ -905,6 +897,52 @@ def _admit_risk_run(
             request.options.jacobian_replay_fallback,
             constraint="this build requires jacobian_replay_fallback=ALLOW",
         )
+
+
+def _admit_risk_run(
+    store: StoreProtocol,
+    gateway: DalGateway,
+    request: RiskRunRequestV2,
+    *,
+    run_id: str,
+    request_json: dict,
+    request_bytes: bytes,
+) -> _AdmittedRiskSnapshot:
+    fixing_snapshot = get_fixing_snapshot(store, request.fixing_snapshot_id)
+    version = get_version(store, request.curve_version_id)
+    quote_risk = bool({"DV01", "KEY_RATE_DV01"} & set(request.measures))
+    _check_import_lineage(request, version, quote_risk)
+    build = (
+        store.get_curve_lab_build_run(version["build_run_id"])
+        if version["source_kind"] == "BUILD"
+        else None
+    )
+    document = _runtime_document(build, version, request)
+    dependencies = _runtime_dependencies(store, build, version)
+    quote_axis, parameter_axis = _runtime_axes(build, version)
+    trades = list(request.target.model_dump(mode="json")["trades"])
+    default_component_key = str(resolved_declaration_order(document)[0]["component_key"])
+    expected_by_key = {
+        (
+            str(item["index_name"]),
+            canonical_utc_datetime(str(item["fixing_time"])),
+        ): item
+        for item in gateway.curve_lab_required_historical_fixings(
+            trades,
+            request.evaluation_time.isoformat(),
+            default_component_key,
+        )
+    }
+    _validate_fixing_compatibility(fixing_snapshot, expected_by_key)
+    requested_layers = set(request.sensitivity_layers)
+    parameter_components = {axis["component_key"] for axis in parameter_axis}
+    aad_eligible = [
+        trade
+        for trade in trades
+        if trade["instrument_type"] == "DEPOSIT"
+        and trade["terms"].get("discount_component_key") in parameter_components
+    ]
+    _check_method_fallbacks(request, requested_layers, aad_eligible, trades)
     estimate = estimate_work(
         trades=len(trades),
         aad_eligible_trades=len(aad_eligible),
@@ -1024,6 +1062,377 @@ def _execute_risk_run_guarded(
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _RiskRunContext:
+    gateway: DalGateway
+    document: dict
+    trades: list[dict]
+    evaluation_time: str
+    base_currency: str
+    curve_version: dict
+    dependencies: list[dict]
+    fixing_observations: list[dict]
+    check_deadline: Callable[[], None]
+
+
+def _select_trade_to_node_rows(
+    aad_gradients: list[list[str] | None],
+    central: list[list[str] | None],
+    parity: list[dict],
+    aad_fallback: str,
+) -> tuple[list[list[str]], list[str], bool]:
+    selected_rows: list[list[str]] = []
+    trade_methods: list[str] = []
+    forbidden_failure = False
+    for aad, central_row, evidence in zip(aad_gradients, central, parity, strict=True):
+        if aad is not None and evidence["status"] == "PASSED":
+            selected_rows.append(aad)
+            trade_methods.append("NATIVE_AAD")
+        elif central_row is not None and aad_fallback == "ALLOW":
+            selected_rows.append(central_row)
+            trade_methods.append(
+                "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
+                if aad is not None
+                else "CENTRAL_NATIVE_PARAMETER_BUMP"
+            )
+        else:
+            forbidden_failure = True
+            trade_methods.append(
+                "FAILED_AAD_PARITY" if aad is not None else "FAILED_AAD_EXECUTION"
+            )
+    return selected_rows, trade_methods, forbidden_failure
+
+
+def _trade_to_node_matrix_method(trade_methods: list[str]) -> str:
+    selected = set(trade_methods)
+    if selected == {"NATIVE_AAD"}:
+        return "NATIVE_AAD_PARITY_VERIFIED"
+    if selected == {"CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"}:
+        return "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
+    return "NATIVE_AAD_WITH_CENTRAL_FALLBACK"
+
+
+def _trade_to_node_matrix(
+    ctx: _RiskRunContext,
+    parameter_axis: list[dict],
+    base_rows: list[dict],
+    aad_fallback: str,
+) -> tuple[dict, list[list[str]] | None]:
+    aad_gradients = [
+        list(value) if value is not None else None
+        for value in (row.get("aad_node_gradient") for row in base_rows)
+    ]
+    try:
+        central = _central_price_matrix(
+            ctx.gateway,
+            ctx.document,
+            ctx.trades,
+            parameter_axis,
+            ctx.evaluation_time,
+            ctx.base_currency,
+            ctx.curve_version,
+            ctx.dependencies,
+            ctx.fixing_observations,
+            ctx.check_deadline,
+        )
+    except _CurveLabDeadlineExceededError:
+        raise
+    except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
+        central = [None] * len(ctx.trades)
+    parity = [
+        _aad_parity(trade["trade_id"], aad_gradients[index], central[index])
+        for index, trade in enumerate(ctx.trades)
+    ]
+    selected_rows, trade_methods, forbidden_failure = _select_trade_to_node_rows(
+        aad_gradients,
+        central,
+        parity,
+        aad_fallback,
+    )
+    if forbidden_failure:
+        failed = _failed_matrix(
+            matrix_id="trade-to-node",
+            mathematical_name="trade_to_node_pv_gradient",
+            orientation="TRADE_X_PARAMETER",
+            row_axis_ref="request.target.trades",
+            column_axis_ref="parameter_axis",
+            rows=len(ctx.trades),
+            columns=len(parameter_axis),
+            method="CENTRAL_NATIVE_PARAMETER_BUMP",
+            reason_code="PARAMETER_BUMP_FAILED",
+            reason="A required native parameter bump failed.",
+            input_unit="NATIVE_PARAMETER_UNIT",
+            output_unit=(f"{ctx.base_currency}_PV_PER_PARAMETER_UNIT"),
+        )
+        failed["trade_methods"] = trade_methods
+        failed["aad_parity"] = parity
+        return failed, None
+    return {
+        "matrix_id": "trade-to-node",
+        "mathematical_name": "trade_to_node_pv_gradient",
+        "orientation": "TRADE_X_PARAMETER",
+        "row_axis_ref": "request.target.trades",
+        "column_axis_ref": "parameter_axis",
+        "rows": len(ctx.trades),
+        "columns": len(parameter_axis),
+        "availability": "AVAILABLE",
+        "availability_reason_code": None,
+        "availability_reason": None,
+        "method": _trade_to_node_matrix_method(trade_methods),
+        "trade_methods": trade_methods,
+        "aad_parity": parity,
+        "bump_target": "NATIVE_PARAMETER",
+        "bump_size": "0.000001",
+        "input_unit": "NATIVE_PARAMETER_UNIT",
+        "output_unit": f"{ctx.base_currency}_PV_PER_PARAMETER_UNIT",
+        "values": selected_rows,
+        "failure": None,
+    }, selected_rows
+
+
+def _calibration_jacobian_matrix(
+    ctx: _RiskRunContext,
+    quote_axis: list[dict],
+    parameter_axis: list[dict],
+) -> tuple[dict, list[list[str]] | None]:
+    try:
+        jacobian = _central_calibration_jacobian(
+            ctx.gateway,
+            ctx.document,
+            quote_axis,
+            parameter_axis,
+            ctx.dependencies,
+            ctx.check_deadline,
+        )
+    except _CurveLabDeadlineExceededError:
+        raise
+    except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
+        jacobian = None
+    if jacobian is None:
+        return _failed_matrix(
+            matrix_id="calibration-jacobian",
+            mathematical_name="d_parameter_d_normalized_quote",
+            orientation="PARAMETER_X_QUOTE",
+            row_axis_ref="parameter_axis",
+            column_axis_ref="quote_axis",
+            rows=len(parameter_axis),
+            columns=len(quote_axis),
+            method="CENTRAL_FULL_RECALIBRATION",
+            reason_code="JACOBIAN_REPLAY_FAILED",
+            reason="A required calibration replay failed.",
+            input_unit="DECIMAL_RATE",
+            output_unit="NATIVE_PARAMETER_UNIT_PER_DECIMAL_RATE",
+        ), None
+    return {
+        "matrix_id": "calibration-jacobian",
+        "mathematical_name": "d_parameter_d_normalized_quote",
+        "orientation": "PARAMETER_X_QUOTE",
+        "row_axis_ref": "parameter_axis",
+        "column_axis_ref": "quote_axis",
+        "rows": len(parameter_axis),
+        "columns": len(quote_axis),
+        "availability": "AVAILABLE",
+        "availability_reason_code": None,
+        "availability_reason": None,
+        "method": "CENTRAL_FULL_RECALIBRATION",
+        "bump_target": "NORMALIZED_QUOTE",
+        "bump_size": "PER_QUOTE_AXIS",
+        "input_unit": "DECIMAL_RATE",
+        "output_unit": "NATIVE_PARAMETER_UNIT_PER_DECIMAL_RATE",
+        "values": jacobian,
+        "failure": None,
+    }, jacobian
+
+
+def _composed_quote_matrix(
+    trade_to_node: list[list[str]] | None,
+    jacobian: list[list[str]] | None,
+    trades: list[dict],
+    quote_axis: list[dict],
+    base_currency: str,
+) -> dict:
+    if trade_to_node is None or jacobian is None:
+        return _failed_matrix(
+            matrix_id="composed-quote-diagnostic",
+            mathematical_name=("trade_to_node_times_calibration_jacobian"),
+            orientation="TRADE_X_QUOTE",
+            row_axis_ref="request.target.trades",
+            column_axis_ref="quote_axis",
+            rows=len(trades),
+            columns=len(quote_axis),
+            method="MATRIX_COMPOSITION",
+            reason_code="COMPOSED_INPUT_UNAVAILABLE",
+            reason=("Trade-to-node or calibration-Jacobian input is unavailable."),
+            input_unit="DECIMAL_RATE",
+            output_unit=(f"{base_currency}_PV_PER_DECIMAL_RATE"),
+        )
+    return {
+        "matrix_id": "composed-quote-diagnostic",
+        "mathematical_name": "trade_to_node_times_calibration_jacobian",
+        "orientation": "TRADE_X_QUOTE",
+        "row_axis_ref": "request.target.trades",
+        "column_axis_ref": "quote_axis",
+        "rows": len(trades),
+        "columns": len(quote_axis),
+        "availability": "AVAILABLE",
+        "availability_reason_code": None,
+        "availability_reason": None,
+        "method": "MATRIX_COMPOSITION",
+        "bump_target": None,
+        "bump_size": None,
+        "input_unit": "DECIMAL_RATE",
+        "output_unit": f"{base_currency}_PV_PER_DECIMAL_RATE",
+        "values": _multiply_matrices(trade_to_node, jacobian),
+        "failure": None,
+    }
+
+
+def _parallel_dv01(
+    ctx: _RiskRunContext,
+    quote_axis: list[dict],
+    base: dict[str, dict],
+) -> list[dict] | None:
+    ctx.check_deadline()
+    parallel_rows = ctx.gateway.price_curve_lab_trades(
+        _bumped_document(ctx.document, quote_axis, None),
+        ctx.trades,
+        ctx.evaluation_time,
+        ctx.base_currency,
+        dependencies=ctx.dependencies,
+        fixing_observations=ctx.fixing_observations,
+        check_deadline=ctx.check_deadline,
+    )
+    ctx.check_deadline()
+    return _differences(ctx.trades, base, _native_by_trade(ctx.trades, parallel_rows))
+
+
+def _key_rate_bump_rows(
+    ctx: _RiskRunContext,
+    quote_axis: list[dict],
+    base: dict[str, dict],
+) -> tuple[list[list[str]], list[dict], bool]:
+    columns: list[list[str]] = []
+    bump_rows: list[dict] = []
+    failed = False
+    for quote_index, axis in enumerate(quote_axis):
+        ctx.check_deadline()
+        bumped_rows = ctx.gateway.price_curve_lab_trades(
+            _bumped_document(ctx.document, quote_axis, quote_index),
+            ctx.trades,
+            ctx.evaluation_time,
+            ctx.base_currency,
+            dependencies=ctx.dependencies,
+            fixing_observations=ctx.fixing_observations,
+            check_deadline=ctx.check_deadline,
+        )
+        ctx.check_deadline()
+        differences = _differences(ctx.trades, base, _native_by_trade(ctx.trades, bumped_rows))
+        status = "SUCCEEDED" if differences is not None else "FAILED"
+        bump_rows.append(
+            {
+                "bump_id": f"key-rate-{quote_index}",
+                "kind": "KEY_RATE",
+                "quote_id": axis["quote_id"],
+                "status": status,
+                "raw_bump": axis["exact_risk_raw_bump"],
+                "normalized_bump": axis["normalized_risk_bump"],
+                "calibration_status": status,
+                "pricing_status": status,
+                "error": None,
+            }
+        )
+        if differences is None:
+            failed = True
+        else:
+            columns.append([row["value"] for row in differences])
+    return columns, bump_rows, failed
+
+
+def _key_rate_dv01_matrix(
+    trades: list[dict],
+    quote_axis: list[dict],
+    base_currency: str,
+    values: list[list[str]] | None,
+) -> dict:
+    matrix: dict[str, object] = {
+        "matrix_id": "key-rate-dv01",
+        "mathematical_name": "key_rate_dv01",
+        "orientation": "TRADE_X_QUOTE",
+        "row_axis_ref": "request.target.trades",
+        "column_axis_ref": "quote_axis",
+        "rows": len(trades),
+        "columns": len(quote_axis),
+        "availability": "AVAILABLE" if values is not None else "FAILED",
+        "availability_reason_code": None if values is not None else "QUOTE_BUMP_FAILED",
+        "availability_reason": None if values is not None else "A required quote bump failed.",
+        "method": "FULL_RECALIBRATION",
+        "bump_target": "NORMALIZED_QUOTE",
+        "bump_size": "0.0001",
+        "input_unit": "DECIMAL_RATE",
+        "output_unit": base_currency,
+    }
+    if values is None:
+        matrix["failure"] = {
+            "code": "QUOTE_BUMP_FAILED",
+            "message": "A required quote bump failed.",
+            "field": "quote_axis",
+            "value": None,
+            "resource_id": None,
+            "details": {},
+        }
+    else:
+        matrix["values"] = values
+        matrix["failure"] = None
+    return matrix
+
+
+def _key_rate_dv01(
+    ctx: _RiskRunContext,
+    quote_axis: list[dict],
+    base: dict[str, dict],
+    parallel: list[dict] | None,
+) -> tuple[dict[str, object], dict]:
+    columns, bump_rows, failed = _key_rate_bump_rows(ctx, quote_axis, base)
+    if parallel is not None:
+        bump_rows.insert(
+            0,
+            {
+                "bump_id": "parallel",
+                "kind": "PARALLEL",
+                "quote_id": None,
+                "status": "SUCCEEDED",
+                "raw_bump": None,
+                "normalized_bump": "0.0001",
+                "calibration_status": "SUCCEEDED",
+                "pricing_status": "SUCCEEDED",
+                "error": None,
+            },
+        )
+    result: dict[str, object] = {"quote_bumps": bump_rows}
+    if failed or parallel is None:
+        return result, _key_rate_dv01_matrix(ctx.trades, quote_axis, ctx.base_currency, None)
+    values = [
+        [columns[column][row] for column in range(len(columns))]
+        for row in range(len(ctx.trades))
+    ]
+    sums = [sum((Decimal(value) for value in row), Decimal(0)) for row in values]
+    result["key_rate_sum"] = [
+        {
+            "trade_id": trade["trade_id"],
+            "value": _decimal_text(sums[index]),
+        }
+        for index, trade in enumerate(ctx.trades)
+    ]
+    result["nonlinear_reconciliation"] = [
+        {
+            "trade_id": trade["trade_id"],
+            "value": _decimal_text(Decimal(parallel[index]["value"]) - sums[index]),
+        }
+        for index, trade in enumerate(ctx.trades)
+    ]
+    return result, _key_rate_dv01_matrix(ctx.trades, quote_axis, ctx.base_currency, values)
+
+
 def _execute_risk_run(
     store: StoreProtocol,
     gateway: DalGateway,
@@ -1087,201 +1496,41 @@ def _execute_risk_run(
     )
     trade_to_node: list[list[str]] | None = None
     jacobian: list[list[str]] | None = None
+    ctx = _RiskRunContext(
+        gateway=gateway,
+        document=document,
+        trades=trades,
+        evaluation_time=request_json["evaluation_time"],
+        base_currency=request.base_currency,
+        curve_version=version,
+        dependencies=dependencies,
+        fixing_observations=fixing_observations,
+        check_deadline=check_deadline,
+    )
 
     if needs_trade_to_node:
-        aad_gradients = [
-            list(value) if value is not None else None
-            for value in (row.get("aad_node_gradient") for row in base_rows)
-        ]
-        try:
-            central = _central_price_matrix(
-                gateway,
-                document,
-                trades,
-                parameter_axis,
-                request_json["evaluation_time"],
-                request.base_currency,
-                version,
-                dependencies,
-                fixing_observations,
-                check_deadline,
-            )
-        except _CurveLabDeadlineExceededError:
-            raise
-        except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
-            central = [None] * len(trades)
-        parity = [
-            _aad_parity(trade["trade_id"], aad_gradients[index], central[index])
-            for index, trade in enumerate(trades)
-        ]
-        selected_rows: list[list[str]] = []
-        trade_methods: list[str] = []
-        forbidden_failure = False
-        for index, evidence in enumerate(parity):
-            aad = aad_gradients[index]
-            central_row = central[index]
-            if aad is not None and evidence["status"] == "PASSED":
-                selected_rows.append(aad)
-                trade_methods.append("NATIVE_AAD")
-            elif central_row is not None and request.options.aad_fallback == "ALLOW":
-                selected_rows.append(central_row)
-                trade_methods.append(
-                    "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
-                    if aad is not None
-                    else "CENTRAL_NATIVE_PARAMETER_BUMP"
-                )
-            else:
-                forbidden_failure = True
-                trade_methods.append(
-                    "FAILED_AAD_PARITY" if aad is not None else "FAILED_AAD_EXECUTION"
-                )
-        if not forbidden_failure:
-            trade_to_node = selected_rows
-        if trade_to_node is not None:
-            selected = set(trade_methods)
-            if selected == {"NATIVE_AAD"}:
-                matrix_method = "NATIVE_AAD_PARITY_VERIFIED"
-            elif selected == {"CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"}:
-                matrix_method = "CENTRAL_PARAMETER_BUMP_AFTER_AAD_PARITY_FAILURE"
-            else:
-                matrix_method = "NATIVE_AAD_WITH_CENTRAL_FALLBACK"
-            matrices.append(
-                {
-                    "matrix_id": "trade-to-node",
-                    "mathematical_name": "trade_to_node_pv_gradient",
-                    "orientation": "TRADE_X_PARAMETER",
-                    "row_axis_ref": "request.target.trades",
-                    "column_axis_ref": "parameter_axis",
-                    "rows": len(trades),
-                    "columns": len(parameter_axis),
-                    "availability": "AVAILABLE",
-                    "availability_reason_code": None,
-                    "availability_reason": None,
-                    "method": matrix_method,
-                    "trade_methods": trade_methods,
-                    "aad_parity": parity,
-                    "bump_target": "NATIVE_PARAMETER",
-                    "bump_size": "0.000001",
-                    "input_unit": "NATIVE_PARAMETER_UNIT",
-                    "output_unit": f"{request.base_currency}_PV_PER_PARAMETER_UNIT",
-                    "values": trade_to_node,
-                    "failure": None,
-                }
-            )
-        else:
-            failed = _failed_matrix(
-                matrix_id="trade-to-node",
-                mathematical_name="trade_to_node_pv_gradient",
-                orientation="TRADE_X_PARAMETER",
-                row_axis_ref="request.target.trades",
-                column_axis_ref="parameter_axis",
-                rows=len(trades),
-                columns=len(parameter_axis),
-                method="CENTRAL_NATIVE_PARAMETER_BUMP",
-                reason_code="PARAMETER_BUMP_FAILED",
-                reason="A required native parameter bump failed.",
-                input_unit="NATIVE_PARAMETER_UNIT",
-                output_unit=(f"{request.base_currency}_PV_PER_PARAMETER_UNIT"),
-            )
-            failed["trade_methods"] = trade_methods
-            failed["aad_parity"] = parity
-            matrices.append(failed)
+        matrix, trade_to_node = _trade_to_node_matrix(
+            ctx,
+            parameter_axis,
+            base_rows,
+            request.options.aad_fallback,
+        )
+        matrices.append(matrix)
 
     if needs_jacobian:
-        try:
-            jacobian = _central_calibration_jacobian(
-                gateway,
-                document,
-                quote_axis,
-                parameter_axis,
-                dependencies,
-                check_deadline,
-            )
-        except _CurveLabDeadlineExceededError:
-            raise
-        except Exception:  # noqa: BLE001 - matrix failure is a persisted outcome
-            jacobian = None
-        if jacobian is not None:
-            matrices.append(
-                {
-                    "matrix_id": "calibration-jacobian",
-                    "mathematical_name": "d_parameter_d_normalized_quote",
-                    "orientation": "PARAMETER_X_QUOTE",
-                    "row_axis_ref": "parameter_axis",
-                    "column_axis_ref": "quote_axis",
-                    "rows": len(parameter_axis),
-                    "columns": len(quote_axis),
-                    "availability": "AVAILABLE",
-                    "availability_reason_code": None,
-                    "availability_reason": None,
-                    "method": "CENTRAL_FULL_RECALIBRATION",
-                    "bump_target": "NORMALIZED_QUOTE",
-                    "bump_size": "PER_QUOTE_AXIS",
-                    "input_unit": "DECIMAL_RATE",
-                    "output_unit": "NATIVE_PARAMETER_UNIT_PER_DECIMAL_RATE",
-                    "values": jacobian,
-                    "failure": None,
-                }
-            )
-        else:
-            matrices.append(
-                _failed_matrix(
-                    matrix_id="calibration-jacobian",
-                    mathematical_name="d_parameter_d_normalized_quote",
-                    orientation="PARAMETER_X_QUOTE",
-                    row_axis_ref="parameter_axis",
-                    column_axis_ref="quote_axis",
-                    rows=len(parameter_axis),
-                    columns=len(quote_axis),
-                    method="CENTRAL_FULL_RECALIBRATION",
-                    reason_code="JACOBIAN_REPLAY_FAILED",
-                    reason="A required calibration replay failed.",
-                    input_unit="DECIMAL_RATE",
-                    output_unit="NATIVE_PARAMETER_UNIT_PER_DECIMAL_RATE",
-                )
-            )
+        matrix, jacobian = _calibration_jacobian_matrix(ctx, quote_axis, parameter_axis)
+        matrices.append(matrix)
 
     if "COMPOSED_QUOTE_DIAGNOSTIC" in requested_layers:
-        if trade_to_node is not None and jacobian is not None:
-            composed = _multiply_matrices(trade_to_node, jacobian)
-            matrices.append(
-                {
-                    "matrix_id": "composed-quote-diagnostic",
-                    "mathematical_name": "trade_to_node_times_calibration_jacobian",
-                    "orientation": "TRADE_X_QUOTE",
-                    "row_axis_ref": "request.target.trades",
-                    "column_axis_ref": "quote_axis",
-                    "rows": len(trades),
-                    "columns": len(quote_axis),
-                    "availability": "AVAILABLE",
-                    "availability_reason_code": None,
-                    "availability_reason": None,
-                    "method": "MATRIX_COMPOSITION",
-                    "bump_target": None,
-                    "bump_size": None,
-                    "input_unit": "DECIMAL_RATE",
-                    "output_unit": f"{request.base_currency}_PV_PER_DECIMAL_RATE",
-                    "values": composed,
-                    "failure": None,
-                }
+        matrices.append(
+            _composed_quote_matrix(
+                trade_to_node,
+                jacobian,
+                trades,
+                quote_axis,
+                request.base_currency,
             )
-        else:
-            matrices.append(
-                _failed_matrix(
-                    matrix_id="composed-quote-diagnostic",
-                    mathematical_name=("trade_to_node_times_calibration_jacobian"),
-                    orientation="TRADE_X_QUOTE",
-                    row_axis_ref="request.target.trades",
-                    column_axis_ref="quote_axis",
-                    rows=len(trades),
-                    columns=len(quote_axis),
-                    method="MATRIX_COMPOSITION",
-                    reason_code="COMPOSED_INPUT_UNAVAILABLE",
-                    reason=("Trade-to-node or calibration-Jacobian input is unavailable."),
-                    input_unit="DECIMAL_RATE",
-                    output_unit=(f"{request.base_currency}_PV_PER_DECIMAL_RATE"),
-                )
-            )
+        )
 
     if requested_layers:
         result["sensitivity_matrices"] = [
@@ -1296,150 +1545,14 @@ def _execute_risk_run(
 
     parallel: list[dict] | None = None
     if quote_risk:
-        parallel_document = _bumped_document(document, quote_axis, None)
-        check_deadline()
-        parallel_rows = gateway.price_curve_lab_trades(
-            parallel_document,
-            trades,
-            request_json["evaluation_time"],
-            request.base_currency,
-            dependencies=dependencies,
-            fixing_observations=fixing_observations,
-            check_deadline=check_deadline,
-        )
-        check_deadline()
-        parallel = _differences(
-            trades,
-            base,
-            _native_by_trade(trades, parallel_rows),
-        )
+        parallel = _parallel_dv01(ctx, quote_axis, base)
         if parallel is not None:
             result["dv01"] = parallel
 
     if "KEY_RATE_DV01" in request.measures:
-        columns: list[list[str]] = []
-        bump_rows: list[dict] = []
-        failed = False
-        for quote_index, axis in enumerate(quote_axis):
-            check_deadline()
-            bumped_rows = gateway.price_curve_lab_trades(
-                _bumped_document(document, quote_axis, quote_index),
-                trades,
-                request_json["evaluation_time"],
-                request.base_currency,
-                dependencies=dependencies,
-                fixing_observations=fixing_observations,
-                check_deadline=check_deadline,
-            )
-            check_deadline()
-            differences = _differences(
-                trades,
-                base,
-                _native_by_trade(trades, bumped_rows),
-            )
-            status = "SUCCEEDED" if differences is not None else "FAILED"
-            bump_rows.append(
-                {
-                    "bump_id": f"key-rate-{quote_index}",
-                    "kind": "KEY_RATE",
-                    "quote_id": axis["quote_id"],
-                    "status": status,
-                    "raw_bump": axis["exact_risk_raw_bump"],
-                    "normalized_bump": axis["normalized_risk_bump"],
-                    "calibration_status": status,
-                    "pricing_status": status,
-                    "error": None,
-                }
-            )
-            if differences is None:
-                failed = True
-            else:
-                columns.append([row["value"] for row in differences])
-        if parallel is not None:
-            bump_rows.insert(
-                0,
-                {
-                    "bump_id": "parallel",
-                    "kind": "PARALLEL",
-                    "quote_id": None,
-                    "status": "SUCCEEDED",
-                    "raw_bump": None,
-                    "normalized_bump": "0.0001",
-                    "calibration_status": "SUCCEEDED",
-                    "pricing_status": "SUCCEEDED",
-                    "error": None,
-                },
-            )
-        result["quote_bumps"] = bump_rows
-        if not failed and parallel is not None:
-            values = [
-                [columns[column][row] for column in range(len(columns))]
-                for row in range(len(trades))
-            ]
-            sums = [sum((Decimal(value) for value in row), Decimal(0)) for row in values]
-            result["key_rate_sum"] = [
-                {
-                    "trade_id": trade["trade_id"],
-                    "value": _decimal_text(sums[index]),
-                }
-                for index, trade in enumerate(trades)
-            ]
-            result["nonlinear_reconciliation"] = [
-                {
-                    "trade_id": trade["trade_id"],
-                    "value": _decimal_text(Decimal(parallel[index]["value"]) - sums[index]),
-                }
-                for index, trade in enumerate(trades)
-            ]
-            matrices.append(
-                {
-                    "matrix_id": "key-rate-dv01",
-                    "mathematical_name": "key_rate_dv01",
-                    "orientation": "TRADE_X_QUOTE",
-                    "row_axis_ref": "request.target.trades",
-                    "column_axis_ref": "quote_axis",
-                    "rows": len(trades),
-                    "columns": len(quote_axis),
-                    "availability": "AVAILABLE",
-                    "availability_reason_code": None,
-                    "availability_reason": None,
-                    "method": "FULL_RECALIBRATION",
-                    "bump_target": "NORMALIZED_QUOTE",
-                    "bump_size": "0.0001",
-                    "input_unit": "DECIMAL_RATE",
-                    "output_unit": request.base_currency,
-                    "values": values,
-                    "failure": None,
-                }
-            )
-        else:
-            matrices.append(
-                {
-                    "matrix_id": "key-rate-dv01",
-                    "mathematical_name": "key_rate_dv01",
-                    "orientation": "TRADE_X_QUOTE",
-                    "row_axis_ref": "request.target.trades",
-                    "column_axis_ref": "quote_axis",
-                    "rows": len(trades),
-                    "columns": len(quote_axis),
-                    "availability": "FAILED",
-                    "availability_reason_code": "QUOTE_BUMP_FAILED",
-                    "availability_reason": "A required quote bump failed.",
-                    "method": "FULL_RECALIBRATION",
-                    "bump_target": "NORMALIZED_QUOTE",
-                    "bump_size": "0.0001",
-                    "input_unit": "DECIMAL_RATE",
-                    "output_unit": request.base_currency,
-                    "failure": {
-                        "code": "QUOTE_BUMP_FAILED",
-                        "message": "A required quote bump failed.",
-                        "field": "quote_axis",
-                        "value": None,
-                        "resource_id": None,
-                        "details": {},
-                    },
-                }
-            )
+        key_rate_result, key_rate_matrix = _key_rate_dv01(ctx, quote_axis, base, parallel)
+        result.update(key_rate_result)
+        matrices.append(key_rate_matrix)
 
     trade_axis = [
         {

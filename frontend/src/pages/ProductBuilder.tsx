@@ -33,15 +33,19 @@ export default function ProductBuilder() {
   }
 
   const refresh = useCallback(() => {
-    return api.listProducts().then((p) => { setProducts(p); });
+    return api.listProducts().then((p) => {
+      setProducts(p);
+    });
   }, []);
 
   useEffect(() => {
     void Promise.allSettled([
-      api.listTemplates().then((t) => { setTemplates(t); }),
+      api.listTemplates().then((t) => {
+        setTemplates(t);
+      }),
       refresh(),
     ]).then((results) => {
-      const rejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const rejected = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
       if (rejected) {
         setError(String(rejected.reason));
       }
@@ -128,183 +132,183 @@ export default function ProductBuilder() {
           <p {...css("muted")}>Loading products…</p>
         </div>
       ) : (
-      <>
-      <div {...css("toolbar")}>
-        <span {...css("muted")}>Start from template:</span>
-        {templates.map((t) => (
-          <button
-            type="button"
-            key={t.key}
-            {...css("ghost")}
-            onClick={() => {
-              loadTemplate(t.key);
-            }}
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
-
-      <div {...css("grid-2")}>
-        <div {...css("panel")}>
-          <h3 {...css("panel-title")}>Definition</h3>
-          <div {...css("field")}>
-            <label htmlFor="product-name">Name</label>
-            <input
-              id="product-name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-              }}
-            />
-          </div>
-          <div {...css("field")}>
-            <label htmlFor="product-description">Description</label>
-            <input
-              id="product-description"
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-              }}
-            />
-          </div>
-
-          <h3 {...css("panel-title")}>Event schedule</h3>
-          {rows.map((r) => (
-            <div {...css("event-builder-row")} key={r.row_id}>
-              <select
-                value={r.date_kind}
-                onChange={(e) => {
-                  updateRow(r.row_id, { date_kind: e.target.value as "date" | "label" });
-                }}
-              >
-                <option value="date">date</option>
-                <option value="label">label</option>
-              </select>
-              {r.date_kind === "date" ? (
-                <input
-                  type="date"
-                  value={r.date ?? ""}
-                  onChange={(e) => {
-                    updateRow(r.row_id, { date: e.target.value });
-                  }}
-                />
-              ) : (
-                <input
-                  placeholder="STRIKE or START:… END:… FREQ:1W"
-                  value={r.label ?? ""}
-                  onChange={(e) => {
-                    updateRow(r.row_id, { label: e.target.value });
-                  }}
-                />
-              )}
-              <textarea
-                placeholder="event script, e.g. call pays MAX(spot() - STRIKE, 0.0)"
-                value={r.event}
-                onChange={(e) => {
-                  updateRow(r.row_id, { event: e.target.value });
-                }}
-              />
+        <>
+          <div {...css("toolbar")}>
+            <span {...css("muted")}>Start from template:</span>
+            {templates.map((t) => (
               <button
                 type="button"
-                {...css("danger")}
+                key={t.key}
+                {...css("ghost")}
                 onClick={() => {
-                  removeRow(r.row_id);
+                  loadTemplate(t.key);
                 }}
               >
-                ×
+                {t.name}
               </button>
+            ))}
+          </div>
+
+          <div {...css("grid-2")}>
+            <div {...css("panel")}>
+              <h3 {...css("panel-title")}>Definition</h3>
+              <div {...css("field")}>
+                <label htmlFor="product-name">Name</label>
+                <input
+                  id="product-name"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                  }}
+                />
+              </div>
+              <div {...css("field")}>
+                <label htmlFor="product-description">Description</label>
+                <input
+                  id="product-description"
+                  value={description}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                  }}
+                />
+              </div>
+
+              <h3 {...css("panel-title")}>Event schedule</h3>
+              {rows.map((r) => (
+                <div {...css("event-builder-row")} key={r.row_id}>
+                  <select
+                    value={r.date_kind}
+                    onChange={(e) => {
+                      updateRow(r.row_id, { date_kind: e.target.value as "date" | "label" });
+                    }}
+                  >
+                    <option value="date">date</option>
+                    <option value="label">label</option>
+                  </select>
+                  {r.date_kind === "date" ? (
+                    <input
+                      type="date"
+                      value={r.date ?? ""}
+                      onChange={(e) => {
+                        updateRow(r.row_id, { date: e.target.value });
+                      }}
+                    />
+                  ) : (
+                    <input
+                      placeholder="STRIKE or START:… END:… FREQ:1W"
+                      value={r.label ?? ""}
+                      onChange={(e) => {
+                        updateRow(r.row_id, { label: e.target.value });
+                      }}
+                    />
+                  )}
+                  <textarea
+                    placeholder="event script, e.g. call pays MAX(spot() - STRIKE, 0.0)"
+                    value={r.event}
+                    onChange={(e) => {
+                      updateRow(r.row_id, { event: e.target.value });
+                    }}
+                  />
+                  <button
+                    type="button"
+                    {...css("danger")}
+                    onClick={() => {
+                      removeRow(r.row_id);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <div {...css("toolbar")} {...inlineStyle({ marginTop: 12 })}>
+                <button type="button" {...css("ghost")} onClick={addRow}>
+                  + Add row
+                </button>
+                <button
+                  type="button"
+                  {...css("ghost")}
+                  onClick={() => {
+                    void runDebug();
+                  }}
+                >
+                  Debug (DAL)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void save();
+                  }}
+                >
+                  Save product
+                </button>
+              </div>
             </div>
-          ))}
-          <div {...css("toolbar")} {...inlineStyle({ marginTop: 12 })}>
-            <button type="button" {...css("ghost")} onClick={addRow}>
-              + Add row
-            </button>
-            <button
-              type="button"
-              {...css("ghost")}
-              onClick={() => {
-                void runDebug();
-              }}
-            >
-              Debug (DAL)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void save();
-              }}
-            >
-              Save product
-            </button>
-          </div>
-        </div>
 
-        <div {...css("panel")}>
-          <h3 {...css("panel-title")}>DAL product debug</h3>
-          {debug ? (
-            <pre {...css("debug")}>{debug}</pre>
-          ) : (
-            <p {...css("muted")}>
-              Click <b>Debug (DAL)</b> to render the product through Product_New /
-              Product_Debug.
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div {...css("panel")}>
-        <h3 {...css("panel-title")}>Saved products</h3>
-        {products.length === 0 ? (
-          <p {...css("muted")}>No saved products yet. Build one above and click Save.</p>
-        ) : (
-          <div {...css("table-container")}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th {...css("num")}># rows</th>
-                  <th></th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.name}</td>
-                    <td {...css("muted")}>{p.description}</td>
-                    <td {...css("num")}>{p.rows.length}</td>
-                    <td>
-                      <button
-                        type="button"
-                        {...css("ghost")}
-                        onClick={() => {
-                          loadSavedProduct(p);
-                        }}
-                      >
-                        Load
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        {...css("danger")}
-                        onClick={() => {
-                          void removeProduct(p.id);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div {...css("panel")}>
+              <h3 {...css("panel-title")}>DAL product debug</h3>
+              {debug ? (
+                <pre {...css("debug")}>{debug}</pre>
+              ) : (
+                <p {...css("muted")}>
+                  Click <b>Debug (DAL)</b> to render the product through Product_New /
+                  Product_Debug.
+                </p>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-      </>
+
+          <div {...css("panel")}>
+            <h3 {...css("panel-title")}>Saved products</h3>
+            {products.length === 0 ? (
+              <p {...css("muted")}>No saved products yet. Build one above and click Save.</p>
+            ) : (
+              <div {...css("table-container")}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Description</th>
+                      <th {...css("num")}># rows</th>
+                      <th></th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((p) => (
+                      <tr key={p.id}>
+                        <td>{p.name}</td>
+                        <td {...css("muted")}>{p.description}</td>
+                        <td {...css("num")}>{p.rows.length}</td>
+                        <td>
+                          <button
+                            type="button"
+                            {...css("ghost")}
+                            onClick={() => {
+                              loadSavedProduct(p);
+                            }}
+                          >
+                            Load
+                          </button>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            {...css("danger")}
+                            onClick={() => {
+                              void removeProduct(p.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

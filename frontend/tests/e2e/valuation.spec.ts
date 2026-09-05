@@ -2,13 +2,15 @@ import { expect, test } from "@playwright/test";
 
 // The app formats numbers via toLocaleString(undefined, ...); derive expected
 // text instead of hard-coding en-US separators.
-const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(8_000_000);
+const TOTAL_PV_TEXT = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(
+  8_000_000,
+);
 const PATH_COUNT_TEXT = (1024).toLocaleString();
 
 test("runs a trade valuation end to end", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   await page.goto("/products");

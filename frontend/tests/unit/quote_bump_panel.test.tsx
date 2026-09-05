@@ -9,9 +9,7 @@ describe("QuoteBumpPanel", () => {
       instrument_id: "a".repeat(32),
       quote_bump: 0.0001,
       residual_tolerance: 1e-8,
-      delta_parameters: [
-        { axis: "parameter:usd:0", value: 0.0025 },
-      ],
+      delta_parameters: [{ axis: "parameter:usd:0", value: 0.0025 }],
       formula: "delta_x = effective_inverse * delta_quote / residual_tolerance",
     });
     render(<QuoteBumpPanel runId={"b".repeat(32)} preview={preview} />);

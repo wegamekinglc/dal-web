@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 // The app formats numbers via toLocaleString(undefined, ...); derive expected
 // text instead of hard-coding en-US separators.
@@ -26,11 +26,9 @@ async function dodgeValuationSpecWindow(page: Page) {
     }[];
   };
   await expect
-    .poll(
-      async () =>
-        (await listRuns()).find((r) => r.config.num_paths === 1024)?.status,
-      { timeout: 60_000 }
-    )
+    .poll(async () => (await listRuns()).find((r) => r.config.num_paths === 1024)?.status, {
+      timeout: 60_000,
+    })
     .toBe("completed");
   await page.waitForTimeout(5_000);
 }
@@ -40,7 +38,7 @@ async function dodgeValuationSpecWindow(page: Page) {
 async function seedCompletedTradeValuation(
   page: Page,
   tradeName: string,
-  notional: number
+  notional: number,
 ): Promise<string> {
   const productResp = await page.request.post("/api/products", {
     data: {
@@ -103,18 +101,16 @@ async function seedCompletedTradeValuation(
         const resp = await page.request.get(`/api/valuations/${pending.id}`);
         return ((await resp.json()) as { status: string }).status;
       },
-      { timeout: 15_000 }
+      { timeout: 15_000 },
     )
     .toBe("completed");
   return pending.id;
 }
 
-test("dashboard renders entity counts and recent valuation runs", async ({
-  page,
-}) => {
+test("dashboard renders entity counts and recent valuation runs", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   const portfolioResp = await page.request.post("/api/portfolios", {
@@ -140,20 +136,16 @@ test("dashboard renders entity counts and recent valuation runs", async ({
     expect(await cardMetric("Valuation Runs")).toBeGreaterThanOrEqual(1);
   }).toPass();
 
-  const runRow = page
-    .getByRole("row")
-    .filter({ hasText: money(8 * 777_000) });
+  const runRow = page.getByRole("row").filter({ hasText: money(8 * 777_000) });
   await expect(runRow).toBeVisible();
   await expect(runRow).toContainText("trade");
   await expect(runRow).toContainText("canned-dal (stub)");
 });
 
-test("valuations page lists runs, badges status and expands details", async ({
-  page,
-}) => {
+test("valuations page lists runs, badges status and expands details", async ({ page }) => {
   test.skip(
     process.env.DAL_PLAYWRIGHT_TEST_BACKEND !== "1",
-    "Only applies to the explicit Playwright test backend"
+    "Only applies to the explicit Playwright test backend",
   );
 
   // Notional 888,000 keeps this run's PV distinct from any sibling test.
@@ -194,13 +186,9 @@ test("valuations page lists runs, badges status and expands details", async ({
   });
 
   await page.goto("/valuations");
-  await expect(
-    page.getByRole("heading", { name: "Valuation Runs" })
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Valuation Runs" })).toBeVisible();
 
-  const completedRow = page
-    .getByRole("row")
-    .filter({ hasText: money(8 * 888_000) });
+  const completedRow = page.getByRole("row").filter({ hasText: money(8 * 888_000) });
   await expect(completedRow).toBeVisible();
   await expect(completedRow).toContainText("trade");
   await expect(completedRow).toContainText("completed");
@@ -209,9 +197,7 @@ test("valuations page lists runs, badges status and expands details", async ({
   await completedRow.getByRole("button", { name: "Details" }).click();
   await expect(page.getByRole("heading", { name: "Greeks" })).toBeVisible();
   await expect(page.getByText(/d_spot:/)).toBeVisible();
-  await expect(
-    page.getByRole("cell", { name: "E2E Badge Trade", exact: true })
-  ).toBeVisible();
+  await expect(page.getByRole("cell", { name: "E2E Badge Trade", exact: true })).toBeVisible();
 
   const failedRow = page.getByRole("row").filter({ hasText: "failed" });
   await expect(failedRow).toHaveCount(1);

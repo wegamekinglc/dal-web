@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import Models from "../../src/pages/Models";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ModelDefinition } from "../../src/api/client";
+import Models from "../../src/pages/Models";
 
 function makeModel(overrides: Partial<ModelDefinition> = {}): ModelDefinition {
   return { id: "m1", name: "m", kind: "BSModelData_", ...overrides };
@@ -40,16 +40,21 @@ describe("Models", () => {
     render(<Models />);
     await screen.findByText("New model");
 
-    fireEvent.change(screen.getByLabelText("Model kind"), { target: { value: "DupireModelData_" } });
+    fireEvent.change(screen.getByLabelText("Model kind"), {
+      target: { value: "DupireModelData_" },
+    });
     fireEvent.change(screen.getByLabelText("Spot strikes (comma-separated)"), {
       target: { value: "90, 100" },
     });
     fireEvent.change(screen.getByLabelText("Times in years (comma-separated)"), {
       target: { value: "0.25, 0.5" },
     });
-    fireEvent.change(screen.getByLabelText("Vols matrix (one row per strike, whitespace-separated)"), {
-      target: { value: "0.24, 0.23\n0.21, 0.20" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Vols matrix (one row per strike, whitespace-separated)"),
+      {
+        target: { value: "0.24, 0.23\n0.21, 0.20" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Create model" }));
 
     await vi.waitFor(() => {
@@ -76,13 +81,18 @@ describe("Models", () => {
     render(<Models />);
     await screen.findByText("New model");
 
-    fireEvent.change(screen.getByLabelText("Model kind"), { target: { value: "DupireModelData_" } });
+    fireEvent.change(screen.getByLabelText("Model kind"), {
+      target: { value: "DupireModelData_" },
+    });
     fireEvent.change(screen.getByLabelText("Spot strikes (comma-separated)"), {
       target: { value: "90  100,\t110" },
     });
-    fireEvent.change(screen.getByLabelText("Vols matrix (one row per strike, whitespace-separated)"), {
-      target: { value: "0.24\n\n0.21   0.20\n" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Vols matrix (one row per strike, whitespace-separated)"),
+      {
+        target: { value: "0.24\n\n0.21   0.20\n" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Create model" }));
 
     await vi.waitFor(() => {
